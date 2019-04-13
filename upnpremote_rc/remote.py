@@ -6,8 +6,8 @@ import re
 
 import voluptuous as vol
 
-from homeassistant.components.remote import (
-    PLATFORM_SCHEMA, RemoteDevice)
+from homeassistant.components.remote import (ATTR_DELAY_SECS,
+    DEFAULT_DELAY_SECS, PLATFORM_SCHEMA, RemoteDevice)
 from homeassistant.const import (
     CONF_NAME, CONF_URL, CONF_TIMEOUT)
 import homeassistant.helpers.config_validation as cv
@@ -171,7 +171,7 @@ class RCRemote(RemoteDevice):
             what = self._states.keys()
         self._state = "off"
         self._states = dict.fromkeys(RCRemote.RC_STATES,-1)
-        if self.reinit():
+        if await self.reinit():
             for p in what:
                 try:
                     k = p.title()
@@ -204,7 +204,7 @@ class RCRemote(RemoteDevice):
         else:
             for r in range(totretry):
                 _LOGGER.info("Pid is %s, Rep is %d (%d/%d)",packet,num,r,totretry)
-                if self.reinit():
+                if await self.reinit():
                     if packet=="mute":
                         await self.async_update(["mute"])
                         st = self._states[packet] 
@@ -256,7 +256,17 @@ class RCRemote(RemoteDevice):
         
     async def send_command(self, command, **kwargs):
         """Send a command."""
+        delay = kwargs.get(ATTR_DELAY_SECS, DEFAULT_DELAY_SECS)
+        j = 0
         for c in command:
             payloads = self.command2payloads(c)
+            k = 0
+            pause = False
             for local_payload in payloads:
-                await self._send_command(local_payload,3)
+                pause = await self._send_command(local_payload,3)
+                k+=1
+                if not pause and k<len(payloads):
+                    await asyncio.sleep(delay)
+            j+=1
+            if not pause and j<len(command):
+                await asyncio.sleep(delay)

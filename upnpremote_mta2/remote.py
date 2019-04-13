@@ -11,8 +11,7 @@ import time
 import voluptuous as vol
 
 from homeassistant.components.remote import (ATTR_DELAY_SECS,
-    DEFAULT_DELAY_SECS,
-    PLATFORM_SCHEMA, RemoteDevice)
+    DEFAULT_DELAY_SECS, PLATFORM_SCHEMA, RemoteDevice)
 from homeassistant.const import (
     CONF_NAME, CONF_URL, CONF_TIMEOUT)
 import homeassistant.helpers.config_validation as cv
@@ -73,8 +72,6 @@ class MainTVAgent2Remote(RemoteDevice):
     
     def _destroy_device(self):
         self._service = None
-        self._channels = dict()
-        self._sources = []
     
     async def reinit(self,force = False):
         if force:
@@ -106,7 +103,7 @@ class MainTVAgent2Remote(RemoteDevice):
         self._state = False
         self._device = None
         self._service = None
-        self._states = dict.fromkeys(MainTVAgent2Remote.STATES)
+        self._states = dict.fromkeys(MainTVAgent2Remote.STATES,'-5')
         requester = AiohttpRequester()
         self._factory = UpnpFactory(requester)
         self._sources = []
@@ -115,6 +112,9 @@ class MainTVAgent2Remote(RemoteDevice):
         self._channel_satellite_id = None
         self._current_source = ''
         self._current_source_t = 0
+        self._current_channel_t = 0
+        self._current_source_l_t = 0
+        self._current_channel_l_t = 0
 
     @property
     def unique_id(self):
@@ -170,10 +170,12 @@ class MainTVAgent2Remote(RemoteDevice):
                 return await response.read()
         
     async def _get_channels_list(self):
-        if not len(self._channels) and self._service:
+        now = time.time()
+        if (not len(self._channels) or now-self._current_channel_l_t>=600) and self._service:
             res = dict()
             try:
                 res = await self._service.action("GetChannelListURL").async_call()
+                self._current_channel_l_t = now
                 self._channel_list_type = res["ChannelListType"]
                 self._channel_satellite_id = 0 if "SatelliteID" not in res or res["SatelliteID"] is None else res["SatelliteID"]
                 webContent = await MainTVAgent2Remote.fetch_page(res['ChannelListURL'])
@@ -183,9 +185,12 @@ class MainTVAgent2Remote(RemoteDevice):
                 self._channels = {}
     
     async def _get_sources_list(self):
-        if not len(self._sources) and self._service:
+        now = time.time()
+        if (not len(self._sources) or now-self._current_source_l_t>=600) and self._service:
+            res = dict()
             try:
                 res = await self._service.action("GetSourceList").async_call()
+                self._current_source_l_t = now
                 xmldoc = minidom.parseString(res['SourceList'])
                 sources = xmldoc.getElementsByTagName('Source')
                 self._sources = []
@@ -194,13 +199,13 @@ class MainTVAgent2Remote(RemoteDevice):
                     if src.sname!='av' and src.sname!='AV':
                         self._sources.append(src)
             except:
-                _LOGGER.error("GetSourceList error: %s",traceback.format_exc())
+                _LOGGER.error("GetSourceList error rv = %s: %s",res,traceback.format_exc())
                 self._sources = []
     
     async def _get_current_source(self):
         now = time.time()
-        rv = self._current_source
-        if not len(self._current_source) or now-self._current_source_t>=10:
+        rv = self._states['source']
+        if not len(rv) or now-self._current_source_t>=10:
             try:
                 res = await self._service.action("GetCurrentExternalSource").async_call()
                 if 'Result' in res and res['Result']=="OK":
@@ -211,21 +216,26 @@ class MainTVAgent2Remote(RemoteDevice):
             except:
                 _LOGGER.error("GetCurentExternalSource error %s",traceback.format_exc())
                 rv = '-2'
-            self._current_source = rv
+            self._states["source"] = rv
         return rv
     
     async def _get_current_channel(self):
-        try:
-            res = await self._service.action("GetCurrentMainTVChannel").async_call()
-            if 'Result' in res and res['Result']=="OK":
-                xmldoc = minidom.parseString(res['CurrentChannel'])
-                c = Channel(xmldoc)
-                rv = c.major_ch
-            else:
-                rv = '-1'
-        except:
-            _LOGGER.error("GetCurrentMainTVChannel error %s",traceback.format_exc())
-            rv = '-2'
+        now = time.time()
+        rv = self._states["channel"]
+        if not len(rv) or now-self._current_channel_t>=10: 
+            try:
+                res = await self._service.action("GetCurrentMainTVChannel").async_call()
+                if 'Result' in res and res['Result']=="OK":
+                    self._current_channel_t = now
+                    xmldoc = minidom.parseString(res['CurrentChannel'])
+                    c = Channel(xmldoc)
+                    rv = c.major_ch
+                else:
+                    rv = '-1'
+            except:
+                _LOGGER.error("GetCurrentMainTVChannel error %s",traceback.format_exc())
+                rv = '-2'
+            self._states["channel"] = rv
         return rv
         
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
@@ -243,8 +253,6 @@ class MainTVAgent2Remote(RemoteDevice):
                 self._destroy_device()
             else:
                 self._state = "on"
-            self._states["channel"] = chan
-            self._states["source"] = src
 
 
     async def _send_command(self, packet, totretry):
