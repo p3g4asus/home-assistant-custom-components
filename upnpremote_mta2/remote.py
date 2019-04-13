@@ -10,7 +10,8 @@ import time
 
 import voluptuous as vol
 
-from homeassistant.components.remote import (
+from homeassistant.components.remote import (ATTR_DELAY_SECS,
+    DEFAULT_DELAY_SECS,
     PLATFORM_SCHEMA, RemoteDevice)
 from homeassistant.const import (
     CONF_NAME, CONF_URL, CONF_TIMEOUT)
@@ -301,10 +302,20 @@ class MainTVAgent2Remote(RemoteDevice):
         
     async def send_command(self, command, **kwargs):
         """Send a command."""
+        delay = kwargs.get(ATTR_DELAY_SECS, DEFAULT_DELAY_SECS)
+        j = 0
         for c in command:
             payloads = self.command2payloads(c)
+            k = 0
+            pause = False
             for local_payload in payloads:
-                await self._send_command(local_payload,3)
+                pause = await self._send_command(local_payload,3)
+                k+=1
+                if not pause and k<len(payloads):
+                    await asyncio.sleep(delay)
+            j+=1
+            if not pause and j<len(command):
+                await asyncio.sleep(delay)
 
 class ContextException(Exception):
     """An Exception class with context attached to it, so a caller can catch a
