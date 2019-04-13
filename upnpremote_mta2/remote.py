@@ -253,13 +253,14 @@ class MainTVAgent2Remote(RemoteDevice):
             return True
         else:
             for r in range(totretry):
-                _LOGGER.info("Pid is %s, Rep is %d (%d/%d)",repr(packet),r,totretry)
+                _LOGGER.info("Pid is %s (%d/%d)",repr(packet),r,totretry)
                 if await self.reinit():
                     try:
                         if isinstance(packet, Channel):
                             vv = await self._service.action("SetMainTVChannel").async_call(\
                                      **packet.as_params(self._channel_list_type,self._channel_satellite_id))
                             if 'Result' in vv and vv['Result']=="OK":
+                                self._states["channel"] = packet.dispno
                                 break
                             else:
                                 _LOGGER.error("Change channel rv %s",str(vv))
@@ -267,6 +268,7 @@ class MainTVAgent2Remote(RemoteDevice):
                         elif isinstance(packet, Source):
                             vv = await self._service.action("SetMainTVSource").async_call(**packet.as_params())
                             if 'Result' in vv and vv['Result']=="OK":
+                                self._states["source"] = packet.sname
                                 break
                             else:
                                 _LOGGER.error("Change source rv %s",str(vv))
@@ -302,20 +304,21 @@ class MainTVAgent2Remote(RemoteDevice):
         
     async def send_command(self, command, **kwargs):
         """Send a command."""
-        delay = kwargs.get(ATTR_DELAY_SECS, DEFAULT_DELAY_SECS)
-        j = 0
-        for c in command:
-            payloads = self.command2payloads(c)
-            k = 0
-            pause = False
-            for local_payload in payloads:
-                pause = await self._send_command(local_payload,3)
-                k+=1
-                if not pause and k<len(payloads):
+        if await self.reinit():
+            delay = kwargs.get(ATTR_DELAY_SECS, DEFAULT_DELAY_SECS)
+            j = 0
+            for c in command:
+                payloads = self.command2payloads(c)
+                k = 0
+                pause = False
+                for local_payload in payloads:
+                    pause = await self._send_command(local_payload,3)
+                    k+=1
+                    if not pause and k<len(payloads):
+                        await asyncio.sleep(delay)
+                j+=1
+                if not pause and j<len(command):
                     await asyncio.sleep(delay)
-            j+=1
-            if not pause and j<len(command):
-                await asyncio.sleep(delay)
 
 class ContextException(Exception):
     """An Exception class with context attached to it, so a caller can catch a
