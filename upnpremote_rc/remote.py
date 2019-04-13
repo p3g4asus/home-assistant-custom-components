@@ -115,7 +115,7 @@ class RCRemote(RemoteDevice):
         self._state = False
         self._device = None
         self._service = None
-        self._states = dict.fromkeys(RCRemote.RC_STATES)
+        self._states = dict.fromkeys(RCRemote.RC_STATES,-5)
         requester = AiohttpRequester()
         self._factory = UpnpFactory(requester)
         self._defaults = defs
@@ -173,6 +173,7 @@ class RCRemote(RemoteDevice):
         self._states = dict.fromkeys(RCRemote.RC_STATES,-1)
         if await self.reinit():
             for p in what:
+                st = dict()
                 try:
                     k = p.title()
                     s = self._service.action('Get'+k)
@@ -181,7 +182,7 @@ class RCRemote(RemoteDevice):
                         if len(st)>1 and 'Current'+k in st:
                             st = st['Current'+k]
                         elif len(st):
-                            st = st.values()[0]
+                            st = next(iter(st.values()))
                         else:
                             _LOGGER.error("Update %s rv error %s",p,str(st))
                             self._destroy_device()
@@ -191,7 +192,7 @@ class RCRemote(RemoteDevice):
                     self._states[p] = st
                 except:
                     self._destroy_device()
-                    _LOGGER.error("Update %s error %s",p,traceback.format_exc())
+                    _LOGGER.error("Update %s error rv = %s: %s",p,st,traceback.format_exc())
                     return
             self._state = "on"
 
@@ -209,7 +210,7 @@ class RCRemote(RemoteDevice):
                         await self.async_update(["mute"])
                         st = self._states[packet] 
                         if st is not None and st>=0:
-                            num = 0 if st else 1
+                            num = False if st else True
                     s = self._service.action("Set"+packet.title())
                     if s is not None:
                         args = s.in_arguments()
@@ -223,6 +224,7 @@ class RCRemote(RemoteDevice):
                                 kw[a.name] = num
                         try:
                             await s.async_call(**kw)
+                            self._states[packet] = num
                             break
                         except:
                             self._destroy_device()
@@ -239,7 +241,7 @@ class RCRemote(RemoteDevice):
             rep = ''
             cmd = command
         else:
-            mo = re.search("([^_]+)(_[pm])?(#([0-9]+))?$",command)
+            mo = re.search("^([^#_]+)(_[pm])?(#([0-9]+))?$",command)
             if mo is not None:
                 cmd = mo.group(1)
                 rep = mo.group(4)

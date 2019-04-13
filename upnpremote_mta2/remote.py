@@ -175,11 +175,11 @@ class MainTVAgent2Remote(RemoteDevice):
             res = dict()
             try:
                 res = await self._service.action("GetChannelListURL").async_call()
-                self._current_channel_l_t = now
                 self._channel_list_type = res["ChannelListType"]
                 self._channel_satellite_id = 0 if "SatelliteID" not in res or res["SatelliteID"] is None else res["SatelliteID"]
                 webContent = await MainTVAgent2Remote.fetch_page(res['ChannelListURL'])
                 self._channels = Channel._parse_channel_list(webContent)
+                self._current_channel_l_t = now
             except:
                 _LOGGER.error("GetChannelsList error rv = %s: %s",str(res),traceback.format_exc())
                 self._channels = {}
@@ -190,7 +190,6 @@ class MainTVAgent2Remote(RemoteDevice):
             res = dict()
             try:
                 res = await self._service.action("GetSourceList").async_call()
-                self._current_source_l_t = now
                 xmldoc = minidom.parseString(res['SourceList'])
                 sources = xmldoc.getElementsByTagName('Source')
                 self._sources = []
@@ -198,6 +197,7 @@ class MainTVAgent2Remote(RemoteDevice):
                     src = Source(s)
                     if src.sname!='av' and src.sname!='AV':
                         self._sources.append(src)
+                self._current_source_l_t = now
             except:
                 _LOGGER.error("GetSourceList error rv = %s: %s",res,traceback.format_exc())
                 self._sources = []
@@ -280,6 +280,16 @@ class MainTVAgent2Remote(RemoteDevice):
                                 break
                             else:
                                 _LOGGER.error("Change source rv %s",str(vv))
+                        elif packet=="reloadchannels":
+                            self._current_channel_l_t = 0
+                            await self._get_channels_list()
+                            if self._current_channel_l_t>0:
+                                break
+                        elif packet=="reloadsources":
+                            self._current_source_l_t = 0
+                            await self._get_sources_list()
+                            if self._current_source_l_t>0:
+                                break
                     except:
                         _LOGGER.error("Send command channel %s",traceback.format_exc())
                         self._destroy_device()
@@ -288,7 +298,9 @@ class MainTVAgent2Remote(RemoteDevice):
     def command2payloads(self,command):
         command = command.lower()
         _LOGGER.info("Searching for %s", command)
-        if re.search("^[0-9\.]+$",command) is not None:
+        if command=="reloadchannels" or command=="reloadsources":
+           return [command]
+        elif re.search("^[0-9\.]+$",command) is not None:
             return [float(command)]
         mo = re.search("^ch([0-9]+)$",command)
         if mo is not None:
