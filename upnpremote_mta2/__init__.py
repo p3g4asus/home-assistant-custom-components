@@ -1,1 +1,0 @@
-REQUIREMENTS = ['async-upnp-client==0.14.7']

@@ -13,13 +13,8 @@ from homeassistant.const import (
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 import traceback
-""" ok remote
-init async quando serve e da rifare se va in errore
-should_poll = true
-async_update()
-stato è on off e attributes sono volume contrasto etc
-commands non definiti nel file di configurazione """
-DEPENDENCIES = ['upnpremote']
+
+REQUIREMENTS = ['async-upnp-client==0.14.7']
 _LOGGER = logging.getLogger(__name__)
 
 DATA_KEY = 'upnpremote_rc'

@@ -312,7 +312,8 @@ class BroadlinkRemote(RemoteDevice):
         delay = kwargs.get(ATTR_DELAY_SECS, DEFAULT_DELAY_SECS)
         hold = kwargs.get(ATTR_HOLD_SECS, DEFAULT_HOLD_SECS)
 
-        for _ in range(num_repeats):
+        for k in range(num_repeats):
+            j = 0
             for c in command:
                 payloads = self.command2payloads(c)
                 i = 0
@@ -321,4 +322,6 @@ class BroadlinkRemote(RemoteDevice):
                     i+=1
                     if i<len(payloads) and not pause:
                         time.sleep(hold)
-                time.sleep(delay)
+                j+=1
+                if j<len(command) and k<num_repeats-1:
+                    time.sleep(delay)

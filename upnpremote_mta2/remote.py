@@ -17,13 +17,7 @@ from homeassistant.const import (
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import (Throttle,slugify)
 import traceback
-""" ok remote
-init async quando serve e da rifare se va in errore
-should_poll = true
-async_update()
-stato è on off e attributes sono volume contrasto etc
-commands non definiti nel file di configurazione """
-DEPENDENCIES = ['upnpremote']
+REQUIREMENTS = ['async-upnp-client==0.14.7']
 _LOGGER = logging.getLogger(__name__)
 
 DATA_KEY = 'upnpremote_mta2'
@@ -101,8 +95,8 @@ class MainTVAgent2Remote(RemoteDevice):
     
 
     def __init__(self, friendly_name, url, unique_id, timeout):
-        from async_upnp_client import UpnpFactory
-        from async_upnp_client.aiohttp import AiohttpRequester
+        from .mfz_async_upnp_client import UpnpFactory
+        from .mfz_async_upnp_client.aiohttp import AiohttpRequester
         """Initialize the remote."""
         self._name = friendly_name
         self._url = url
@@ -119,7 +113,7 @@ class MainTVAgent2Remote(RemoteDevice):
         self._channel_list_type = None
         self._channel_satellite_id = None
         self._current_source = ''
-        self._curent_source_t = 0
+        self._current_source_t = 0
 
     @property
     def unique_id(self):
@@ -170,24 +164,25 @@ class MainTVAgent2Remote(RemoteDevice):
     async def fetch_page(url,timeout=10):
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(url,timeout) as response:
+            async with session.get(url,timeout=timeout) as response:
                 assert response.status == 200
                 return await response.read()
         
     async def _get_channels_list(self):
         if not len(self._channels) and self._service:
+            res = dict()
             try:
                 res = await self._service.action("GetChannelListURL").async_call()
                 self._channel_list_type = res["ChannelListType"]
-                self._channel_satellite_id = 0 if res["SatelliteID"] is None else res["SatelliteID"]
+                self._channel_satellite_id = 0 if "SatelliteID" not in res or res["SatelliteID"] is None else res["SatelliteID"]
                 webContent = await MainTVAgent2Remote.fetch_page(res['ChannelListURL'])
                 self._channels = Channel._parse_channel_list(webContent)
             except:
-                _LOGGER.error("GetChannelsList error: %s",traceback.format_exc())
+                _LOGGER.error("GetChannelsList error rv = %s: %s",str(res),traceback.format_exc())
                 self._channels = {}
     
     async def _get_sources_list(self):
-        if not len(self.sources) and self._service:
+        if not len(self._sources) and self._service:
             try:
                 res = await self._service.action("GetSourceList").async_call()
                 xmldoc = minidom.parseString(res['SourceList'])
@@ -196,7 +191,7 @@ class MainTVAgent2Remote(RemoteDevice):
                 for s in sources:
                     src = Source(s)
                     if src.sname!='av' and src.sname!='AV':
-                        self.sources.append(src)
+                        self._sources.append(src)
             except:
                 _LOGGER.error("GetSourceList error: %s",traceback.format_exc())
                 self._sources = []
@@ -236,7 +231,7 @@ class MainTVAgent2Remote(RemoteDevice):
     async def async_update(self,**kwargs):
         self._state = "off"
         err = 0
-        if self.reinit():
+        if await self.reinit():
             src = await self._get_current_source()
             if not len(src):
                 err+=1
@@ -258,10 +253,10 @@ class MainTVAgent2Remote(RemoteDevice):
         else:
             for r in range(totretry):
                 _LOGGER.info("Pid is %s, Rep is %d (%d/%d)",repr(packet),r,totretry)
-                if self.reinit():
+                if await self.reinit():
                     try:
                         if isinstance(packet, Channel):
-                            vv = self._service.action("SetMainTVChannel").async_call(\
+                            vv = await self._service.action("SetMainTVChannel").async_call(\
                                      **packet.as_params(self._channel_list_type,self._channel_satellite_id))
                             if 'Result' in vv and vv['Result']=="OK":
                                 break
@@ -269,7 +264,7 @@ class MainTVAgent2Remote(RemoteDevice):
                                 _LOGGER.error("Change channel rv %s",str(vv))
                                 self._destroy_device()
                         elif isinstance(packet, Source):
-                            vv = self._service.action("SetMainTVSource").async_call(**packet.as_params())
+                            vv = await self._service.action("SetMainTVSource").async_call(**packet.as_params())
                             if 'Result' in vv and vv['Result']=="OK":
                                 break
                             else:
@@ -443,7 +438,7 @@ class Channel(object):
         if _getint(buf, 10) != 0xffff:
             raise ParseException('reserved field mismatch (%04x)' % _getint(buf, 10))
 
-        self.dispno = buf[12:16].rstrip('\x00').decode('utf-8')
+        self.dispno = buf[12:16].decode('utf-8').rstrip('\x00')
 
         title_len = _getint(buf, 22)
         self.title = buf[24:24+title_len].decode('utf-8')
