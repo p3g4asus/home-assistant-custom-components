@@ -167,7 +167,7 @@ class RCRemote(RemoteDevice):
         if what is None:
             what = self._states.keys()
         self._state = "off"
-        self._states = dict.fromkeys(RCRemote.RC_STATES,-1)
+        #self._states = dict.fromkeys(RCRemote.RC_STATES,-1)
         if await self.reinit():
             for p in what:
                 st = dict()
