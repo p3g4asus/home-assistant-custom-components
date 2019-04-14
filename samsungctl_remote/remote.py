@@ -323,8 +323,9 @@ class SamsungCTLRemote(RemoteDevice):
             cc = samsungctl.Config.load(self._conffile)
             cc.log_level = samsungctl.Config.LOG_DEBUG
             self._config = cc
+        _LOGGER.info("Reiniting %s",self._config)
         self._remote = samsungctl.Remote(self._config)
-        if not self.remote.open():
+        if not self._remote.open():
             self._destroy_device()
             self._state = "off"
         else:
@@ -338,9 +339,10 @@ class SamsungCTLRemote(RemoteDevice):
                 self._destroy_device()
                 
                 await self.hass.async_add_job(self._reinit)
-                
+                if self._remote is not None:
+                    self._last_init = now
             except:
-                traceback.print_exc()
+                _LOGGER.error("Reinit error: %s",traceback.format_exc())
                 self._destroy_device()
                 
         return self._remote
@@ -395,6 +397,7 @@ class SamsungCTLRemote(RemoteDevice):
             self._destroy_device()
             return False
         else:
+            self._last_init = time.time()
             return True
 
     async def _send_command(self, packet, totretry):
@@ -416,13 +419,18 @@ class SamsungCTLRemote(RemoteDevice):
             return False
                         
     def command2payloads(self,command):
-        command = command.lower()
+        command = command.upper()
         _LOGGER.info("Searching for %s", command)
         if command in SamsungCTLRemote.CODES:
             return [command]
         elif re.search("^[0-9\.]+$",command) is not None:
             return [float(command)]
         else:
+            mo = re.search("^([^#]+)#([0-9]+)$",command)
+            if mo is not None:
+                cmd = mo.group(1)
+                if cmd in SamsungCTLRemote.CODES:
+                    return [cmd for _ in range(int(mo.group(2)))]
             return []
         
     async def async_send_command(self, command, **kwargs):
