@@ -426,6 +426,11 @@ class SamsungCTLRemote(RemoteDevice):
         elif re.search("^[0-9\.]+$",command) is not None:
             return [float(command)]
         else:
+            mo = re.search("^ch([0-9]+)$",command)
+            if mo is not None:
+                cmd = mo.group(1)
+                return ["KEY_"+c for c in cmd]
+                    
             mo = re.search("^([^#]+)#([0-9]+)$",command)
             if mo is not None:
                 cmd = mo.group(1)
