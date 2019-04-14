@@ -50,7 +50,7 @@ async def async_setup_platform(hass, config, async_add_entities,
     friendly_name = config.get(CONF_NAME)
     url = config.get(CONF_URL)
     # Create handler
-    _LOGGER.info("Initializing % with url %s", friendly_name, url)
+    _LOGGER.info("Initializing %s with url %s", friendly_name, url)
     # The Chuang Mi IR Remote Controller wants to be re-discovered every
     # 5 minutes. As long as polling is disabled the device should be
     # re-discovered (lazy_discover=False) in front of every command.
@@ -88,6 +88,7 @@ class RCRemote(RemoteDevice):
     
     def _destroy_device(self):
         self._service = None
+        self._state = "off"
     
     async def reinit(self):
         if not self._service:
@@ -96,8 +97,10 @@ class RCRemote(RemoteDevice):
                 self._device = await self._factory.async_create_device(self._url)
                 # get RenderingControle-service
                 self._service = self._device.service('urn:schemas-upnp-org:service:RenderingControl:1')
+                self._state = "on"
                 return self._service
             except:
+                self._state = "off"
                 _LOGGER.error("Reinit %s: %s",self._url,traceback.format_exc())
                 return None
         else:
@@ -112,7 +115,7 @@ class RCRemote(RemoteDevice):
         self._url = url
         self._unique_id = unique_id
         self._timeout = timeout
-        self._state = False
+        self._state = "off"
         self._device = None
         self._service = None
         self._states = dict.fromkeys(RCRemote.RC_STATES,-5)
@@ -256,7 +259,7 @@ class RCRemote(RemoteDevice):
         else:
             return []
         
-    async def send_command(self, command, **kwargs):
+    async def async_send_command(self, command, **kwargs):
         """Send a command."""
         delay = kwargs.get(ATTR_DELAY_SECS, DEFAULT_DELAY_SECS)
         j = 0

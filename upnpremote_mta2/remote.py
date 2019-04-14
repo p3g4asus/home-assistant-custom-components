@@ -41,7 +41,7 @@ async def async_setup_platform(hass, config, async_add_entities,
     friendly_name = config.get(CONF_NAME)
     url = config.get(CONF_URL)
     # Create handler
-    _LOGGER.info("Initializing % with url %s", friendly_name, url)
+    _LOGGER.info("Initializing %s with url %s", friendly_name, url)
     # The Chuang Mi IR Remote Controller wants to be re-discovered every
     # 5 minutes. As long as polling is disabled the device should be
     # re-discovered (lazy_discover=False) in front of every command.
@@ -72,10 +72,9 @@ class MainTVAgent2Remote(RemoteDevice):
     
     def _destroy_device(self):
         self._service = None
+        self._state = "off"
     
-    async def reinit(self,force = False):
-        if force:
-            self.destroy_device()
+    async def reinit(self):
         if not self._service:
             try:
                 _LOGGER.warn("Reiniting %s",self._url)
@@ -84,8 +83,13 @@ class MainTVAgent2Remote(RemoteDevice):
                 self._service = self._device.service('urn:samsung.com:service:MainTVAgent2:1')
                 await self._get_channels_list()
                 await self._get_sources_list()
-                return self._service if len(self._channels) and len(self._sources) else None
+                if len(self._channels) and len(self._sources):
+                    self._state = "on"
+                    return self._service
+                else:
+                    self._destroy_device()
             except:
+                self._state = "off"
                 _LOGGER.error("Reinit %s: %s",self._url,traceback.format_exc())
                 return None
         else:
@@ -93,14 +97,14 @@ class MainTVAgent2Remote(RemoteDevice):
     
 
     def __init__(self, friendly_name, url, unique_id, timeout):
-        from .mfz_async_upnp_client import UpnpFactory
-        from .mfz_async_upnp_client.aiohttp import AiohttpRequester
+        from async_upnp_client import UpnpFactory
+        from async_upnp_client.aiohttp import AiohttpRequester
         """Initialize the remote."""
         self._name = friendly_name
         self._url = url
         self._unique_id = unique_id
         self._timeout = timeout
-        self._state = False
+        self._state = "off"
         self._device = None
         self._service = None
         self._states = dict.fromkeys(MainTVAgent2Remote.STATES,'-5')
@@ -322,7 +326,7 @@ class MainTVAgent2Remote(RemoteDevice):
         else:
             return []
         
-    async def send_command(self, command, **kwargs):
+    async def async_send_command(self, command, **kwargs):
         """Send a command."""
         if await self.reinit():
             delay = kwargs.get(ATTR_DELAY_SECS, DEFAULT_DELAY_SECS)

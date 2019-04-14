@@ -266,8 +266,10 @@ class BroadlinkRemote(RemoteDevice):
                 rv = self._device.send_data(payload)
                 if rv is None or (rv[0x22] | (rv[0x23] << 8))!=0:
                     raise ValueError
+                self._state = "on"
                 break
             except (socket.timeout, ValueError):
+                self._state = "off"
                 if retry == totretry-1:
                     _LOGGER.error("Failed to send packet to device")
                 else:
