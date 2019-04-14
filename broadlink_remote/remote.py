@@ -67,7 +67,6 @@ async def async_setup_platform(hass, config, async_add_entities,
     ip_addr = config.get(CONF_HOST)
     mac_addr = binascii.unhexlify(
         config.get(CONF_MAC).encode().replace(b':', b''))
-    device = rm((ip_addr, 80), mac_addr, None)
 
     # Create handler
     # The Chuang Mi IR Remote Controller wants to be re-discovered every
@@ -83,12 +82,13 @@ async def async_setup_platform(hass, config, async_add_entities,
                                ip_addr.replace('.', '_'))
     slot = config.get(CONF_SLOT)
     timeout = config.get(CONF_TIMEOUT)
+    device = rm((ip_addr, 80), mac_addr, timeout)
 
     #cmnds = fill_commands(config.get(CONF_COMMANDS)
     cmnds = config.get(CONF_COMMANDS)
 
     xiaomi_miio_remote = BroadlinkRemote(friendly_name, device, mac_addr,
-                                          slot, timeout,
+                                          slot,
                                           cmnds)
 
     hass.data[DATA_KEY][friendly_name] = xiaomi_miio_remote
@@ -147,7 +147,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                         return
                     await asyncio.sleep(1, loop=hass.loop)
             msg = "Did not received any signal"
-        entity._device = rm(device.host, device.mac, None)
+        entity._device = rm(device.host, device.mac, device.timeout)
         _LOGGER.error(msg)
         hass.components.persistent_notification.async_create(
             msg, title='Broadlink remote')
@@ -160,13 +160,12 @@ class BroadlinkRemote(RemoteDevice):
     """Representation of a Xiaomi Miio Remote device."""
 
     def __init__(self, friendly_name, device, unique_id,
-                 slot, timeout, commands):
+                 slot, commands):
         """Initialize the remote."""
         self._name = friendly_name
         self._device = device
         self._unique_id = unique_id
         self._slot = slot
-        self._timeout = timeout
         self._state = "off"
         self._commands = commands
 
@@ -193,7 +192,7 @@ class BroadlinkRemote(RemoteDevice):
     @property
     def timeout(self):
         """Return the timeout for learning command."""
-        return self._timeout
+        return self._device.timeout
 
     @property
     def is_on(self):
@@ -275,7 +274,7 @@ class BroadlinkRemote(RemoteDevice):
                 else:
                     try:
                         from .mfzbroadlink import rm
-                        self._device = rm(self._device.host,self._device.mac,None)
+                        self._device = rm(self._device.host,self._device.mac,self._device.timeout)
                         rv = self._device.auth()
                         _LOGGER.info("Trying to reinit %d", rv)
                     except:

@@ -12,7 +12,7 @@ import voluptuous as vol
 from homeassistant.components.remote import (ATTR_DELAY_SECS,
     DEFAULT_DELAY_SECS, PLATFORM_SCHEMA, RemoteDevice)
 from homeassistant.const import (
-    CONF_NAME, CONF_FILE_PATH, CONF_TIMEOUT)
+    CONF_NAME, CONF_FILE_PATH)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 import traceback
@@ -22,15 +22,12 @@ _LOGGER = logging.getLogger(__name__)
 DATA_KEY = 'samsungctl_remote'
 
 
-DEFAULT_TIMEOUT = 5
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=1)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_NAME): cv.string,
     vol.Optional(CONF_FILE_PATH,os.path.join(
             os.path.dirname(__file__), 'samsungctl.conf')): cv.string,
-    vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT):
-        vol.All(int, vol.Range(min=0))
 }, extra=vol.ALLOW_EXTRA)
 
 
@@ -50,14 +47,11 @@ async def async_setup_platform(hass, config, async_add_entities,
 
     if DATA_KEY not in hass.data:
         hass.data[DATA_KEY] = {}
-
-    
-    timeout = config.get(CONF_TIMEOUT)
     
     
     unique_id = fname.replace("/","").replace(":","").replace(".","_")
 
-    xiaomi_miio_remote = SamsungCTLRemote(friendly_name, fname, unique_id, timeout)
+    xiaomi_miio_remote = SamsungCTLRemote(friendly_name, fname, unique_id)
 
     hass.data[DATA_KEY][friendly_name] = xiaomi_miio_remote
 
@@ -352,11 +346,10 @@ class SamsungCTLRemote(RemoteDevice):
         return self._remote
     
 
-    def __init__(self, friendly_name, fpath, unique_id, timeout):
+    def __init__(self, friendly_name, fpath, unique_id):
         """Initialize the remote."""
         self._name = friendly_name
         self._unique_id = unique_id
-        self._timeout = timeout
         self._state = "off"
         self._config = None
         self._conffile = fpath
@@ -377,11 +370,6 @@ class SamsungCTLRemote(RemoteDevice):
     def device(self):
         """Return the remote object."""
         return self._remote
-
-    @property
-    def timeout(self):
-        """Return the timeout for learning command."""
-        return self._timeout
 
     @property
     def is_on(self):

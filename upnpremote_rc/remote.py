@@ -114,12 +114,11 @@ class RCRemote(RemoteDevice):
         self._name = friendly_name
         self._url = url
         self._unique_id = unique_id
-        self._timeout = timeout
         self._state = "off"
         self._device = None
         self._service = None
         self._states = dict.fromkeys(RCRemote.RC_STATES,-5)
-        requester = AiohttpRequester()
+        requester = AiohttpRequester(timeout)
         self._factory = UpnpFactory(requester)
         self._defaults = defs
 
@@ -137,11 +136,6 @@ class RCRemote(RemoteDevice):
     def device(self):
         """Return the remote object."""
         return self._device
-
-    @property
-    def timeout(self):
-        """Return the timeout for learning command."""
-        return self._timeout
 
     @property
     def is_on(self):

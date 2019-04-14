@@ -103,12 +103,11 @@ class MainTVAgent2Remote(RemoteDevice):
         self._name = friendly_name
         self._url = url
         self._unique_id = unique_id
-        self._timeout = timeout
         self._state = "off"
         self._device = None
         self._service = None
         self._states = dict.fromkeys(MainTVAgent2Remote.STATES,'-5')
-        requester = AiohttpRequester()
+        requester = AiohttpRequester(timeout)
         self._factory = UpnpFactory(requester)
         self._sources = []
         self._channels = {}
@@ -134,11 +133,6 @@ class MainTVAgent2Remote(RemoteDevice):
     def device(self):
         """Return the remote object."""
         return self._device
-
-    @property
-    def timeout(self):
-        """Return the timeout for learning command."""
-        return self._timeout
 
     @property
     def is_on(self):
