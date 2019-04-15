@@ -14,9 +14,7 @@ from homeassistant.components.remote import (ATTR_DELAY_SECS,
 from homeassistant.const import (
     CONF_NAME, CONF_FILE_PATH)
 import homeassistant.helpers.config_validation as cv
-from homeassistant.util import Throttle
 import traceback
-REQUIREMENTS = ['async-upnp-client==0.14.7']
 _LOGGER = logging.getLogger(__name__)
 
 DATA_KEY = 'samsungctl_remote'
@@ -308,14 +306,19 @@ class SamsungCTLRemote(RemoteDevice):
         'KEY_EXT41',
     }
     
-    def _destroy_device(self):
+    async def set_state(self,newstate):
+        if newstate!=self._state:
+            self._state = newstate
+            await self.async_update_ha_state()
+    
+    async def _destroy_device(self):
         if self._remote is not None:
             try:
                 self._remote.close()
             except:
                 pass
             self._remote = None
-            self._state = "off"
+            await self.set_state("off")
     
     def _reinit(self):
         from . import samsungctl
@@ -326,24 +329,24 @@ class SamsungCTLRemote(RemoteDevice):
         _LOGGER.info("Reiniting %s",self._config)
         self._remote = samsungctl.Remote(self._config)
         if not self._remote.open():
-            self._destroy_device()
-            self._state = "off"
-        else:
-            self._state = "on"
+            self._remote = None
         return self._remote
     
     async def reinit(self):
         now = time.time()
         if self._remote is None or now-self._last_init>=60:
             try:
-                self._destroy_device()
+                await self._destroy_device()
                 
                 await self.hass.async_add_job(self._reinit)
                 if self._remote is not None:
                     self._last_init = now
+                    await self.set_state("on")
+                else:
+                    await self.set_state("off")
             except:
                 _LOGGER.error("Reinit error: %s",traceback.format_exc())
-                self._destroy_device()
+                await self._destroy_device()
                 
         return self._remote
     
@@ -394,7 +397,7 @@ class SamsungCTLRemote(RemoteDevice):
         
     def _send_key(self,key):
         if not self._remote.control(key):
-            self._destroy_device()
+            self._remote = None
             return False
         else:
             self._last_init = time.time()
@@ -413,9 +416,11 @@ class SamsungCTLRemote(RemoteDevice):
                             self._send_key, packet))
                         if vv:
                             break
+                        else:
+                            await self.set_state("off")
                     except:
                         _LOGGER.error("Send command channel %s",traceback.format_exc())
-                        self._destroy_device()
+                        await self._destroy_device()
             return False
                         
     def command2payloads(self,command):
@@ -426,7 +431,7 @@ class SamsungCTLRemote(RemoteDevice):
         elif re.search("^[0-9\.]+$",command) is not None:
             return [float(command)]
         else:
-            mo = re.search("^ch([0-9]+)$",command)
+            mo = re.search("^CH([0-9]+)$",command)
             if mo is not None:
                 cmd = mo.group(1)
                 return ["KEY_"+c for c in cmd]

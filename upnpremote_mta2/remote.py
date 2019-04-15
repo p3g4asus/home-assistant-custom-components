@@ -68,7 +68,7 @@ async def async_setup_platform(hass, config, async_add_entities,
 class MainTVAgent2Remote(RemoteDevice):
     """Representation of a Xiaomi Miio Remote device."""
     
-    STATES = ["channel","source"]
+    STATES = ["channel","source","sourceidx"]
     
     def _destroy_device(self):
         self._service = None
@@ -191,8 +191,10 @@ class MainTVAgent2Remote(RemoteDevice):
                 xmldoc = minidom.parseString(res['SourceList'])
                 sources = xmldoc.getElementsByTagName('Source')
                 self._sources = []
+                i = 0
                 for s in sources:
-                    src = Source(s)
+                    src = Source(s,i)
+                    i+=1
                     if src.sname!='av' and src.sname!='AV':
                         self._sources.append(src)
                 self._current_source_l_t = now
@@ -209,12 +211,15 @@ class MainTVAgent2Remote(RemoteDevice):
                 if 'Result' in res and res['Result']=="OK":
                     self._current_source_t = now
                     rv = res['CurrentExternalSource']
+                    if self._states["source"] != rv:
+                        self._states["source"] = rv
+                        c = next((x.idx for x in self._sources if x.sname == rv),0)
+                        self._states["sourceidx"] = c
                 else:
-                    rv = '-1'
+                    rv = ''
             except:
                 _LOGGER.error("GetCurentExternalSource error %s",traceback.format_exc())
-                rv = '-2'
-            self._states["source"] = rv
+                rv = ''
         return rv
     
     async def _get_current_channel(self):
@@ -228,12 +233,12 @@ class MainTVAgent2Remote(RemoteDevice):
                     xmldoc = minidom.parseString(res['CurrentChannel'])
                     c = Channel(xmldoc)
                     rv = c.major_ch
+                    self._states["channel"] = rv
                 else:
-                    rv = '-1'
+                    rv = ''
             except:
                 _LOGGER.error("GetCurrentMainTVChannel error %s",traceback.format_exc())
-                rv = '-2'
-            self._states["channel"] = rv
+                rv = ''
         return rv
         
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
@@ -275,6 +280,7 @@ class MainTVAgent2Remote(RemoteDevice):
                             vv = await self._service.action("SetMainTVSource").async_call(**packet.as_params())
                             if 'Result' in vv and vv['Result']=="OK":
                                 self._states["source"] = packet.sname
+                                self._states["sourceidx"] = packet.idx
                                 break
                             else:
                                 _LOGGER.error("Change source rv %s",str(vv))
@@ -307,14 +313,14 @@ class MainTVAgent2Remote(RemoteDevice):
                 return [self._channels[c]]
             else:
                 return []
-        mo = re.search("^sr([0-9]+)$",command)
+        mo = re.search("^sr#([0-9]+)$",command)
         if mo is not None:
             c = int(mo.group(1))
             if len(self._sources)>c:
                 return [self._sources[c]]
             else:
                 return []
-        c = next((x for x in self._sources if x.sname == command or slugify(c.sname) == command),None)
+        c = next((x for x in self._sources if x.sname == command or slugify(x.sname) == command),None)
         if c is not None:
             return [c]
         else:
@@ -499,15 +505,16 @@ class Channel(object):
         return {'ChannelListType':chtype,'Channel':self.as_xml,'SatelliteID':sid}
             
 class Source(object):
-    def __init__(self,root):
+    def __init__(self,root,idx):
         name = root.getElementsByTagName('SourceType')
         sid = root.getElementsByTagName('ID')
         self.sname = name[0].childNodes[0].nodeValue
         self.sid = int(sid[0].childNodes[0].nodeValue)
+        self.idx = idx
     
     def __repr__(self):
-        return '<Source %s Sid=%d>' % \
-            (repr(self.sname), self.sid)
+        return '<Source %s Sid=%d Idx=%d>' % \
+            (repr(self.sname), self.sid, self.idx)
     
     def as_params(self):
         return {'Source':self.sname,'ID':self.sid,'UiID':self.sid}

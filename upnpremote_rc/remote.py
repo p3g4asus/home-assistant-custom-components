@@ -86,6 +86,12 @@ class RCRemote(RemoteDevice):
     
     RC_STATES = ["contrast","brightness","volume","mute","sharpness"]
     
+    #Not used because of polling
+    async def set_state(self,newstate):
+        if newstate!=self._state:
+            self._state = newstate
+            await self.async_update_ha_state()
+    
     def _destroy_device(self):
         self._service = None
         self._state = "off"
