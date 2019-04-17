@@ -214,12 +214,7 @@ class BroadlinkRemote(RemoteDevice):
                 raise ValueError
         except:
             from .mfzbroadlink import rm
-            self._device = rm(self._device.host,self._device.mac,None)
-            try:
-                if self._device.auth():
-                    self._state = "on"
-            except:
-                pass
+            self._device = rm(self._device.host,self._device.mac,self._device.timeout)
         _LOGGER.info("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):

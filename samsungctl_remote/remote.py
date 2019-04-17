@@ -382,7 +382,7 @@ class SamsungCTLRemote(RemoteDevice):
     @property
     def should_poll(self):
         """We should not be polled for device up state."""
-        return False
+        return True
 
     async def async_turn_on(self, **kwargs):
         """Turn the device on."""
