@@ -342,9 +342,6 @@ class SamsungCTLRemote(RemoteDevice):
                 await self.hass.async_add_job(self._reinit)
                 if self._remote is not None:
                     self._last_init = now
-                    await self.set_state("on")
-                else:
-                    await self.set_state("off")
             except:
                 _LOGGER.error("Reinit error: %s",traceback.format_exc())
                 await self._destroy_device()
