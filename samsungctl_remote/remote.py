@@ -15,6 +15,7 @@ from homeassistant.const import (
     CONF_NAME, CONF_FILE_PATH)
 import homeassistant.helpers.config_validation as cv
 import traceback
+from homeassistant.util import Throttle
 _LOGGER = logging.getLogger(__name__)
 
 DATA_KEY = 'samsungctl_remote'
@@ -402,6 +403,17 @@ class SamsungCTLRemote(RemoteDevice):
         else:
             self._last_init = time.time()
             return True
+        
+    @Throttle(MIN_TIME_BETWEEN_UPDATES)
+    async def async_update(self):
+        self._state = "off"
+        try:
+            if await self.reinit():
+                if self._remote.power:
+                    self._state = "on"
+        except:
+            pass
+        _LOGGER.info("New state is %s",self._state)
 
     async def _send_command(self, packet, totretry):
         if isinstance(packet, float):
