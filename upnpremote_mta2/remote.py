@@ -304,8 +304,8 @@ class MainTVAgent2Remote(RemoteDevice):
         _LOGGER.info("Searching for %s", command)
         if command=="reloadchannels" or command=="reloadsources":
             return [command]
-        elif re.search("^[0-9\.]+$",command) is not None:
-            return [float(command)]
+        elif re.search("^t[0-9\.]+$",command) is not None:
+            return [float(command[1:])]
         mo = re.search("^ch([0-9]+)$",command)
         if mo is not None:
             c = mo.group(1)

@@ -254,8 +254,8 @@ class RCRemote(RemoteDevice):
             if len(rep)==0:
                 rep = self._defaults[cmd]
             return [(cmd,int(rep))]
-        elif re.search("^[0-9\.]+$",cmd) is not None:
-            return [(float(cmd),1)]
+        elif re.search("^t[0-9\.]+$",cmd) is not None:
+            return [(float(cmd[1:]),1)]
         else:
             return []
         

@@ -437,8 +437,8 @@ class SamsungCTLRemote(RemoteDevice):
         _LOGGER.info("Searching for %s", command)
         if command in SamsungCTLRemote.CODES:
             return [command]
-        elif re.search("^[0-9\.]+$",command) is not None:
-            return [float(command)]
+        elif re.search("^T[0-9\.]+$",command) is not None:
+            return [float(command[1:])]
         else:
             mo = re.search("^CH([0-9]+)$",command)
             if mo is not None:
