@@ -87,12 +87,12 @@ class _GoogleEntity:
         self.config = config
         self.state = state
         self._traits = None
-        self.entity_id = entity_id
+        self.entity_id_f = entity_id
 
     @property
     def entity_id(self):
         """Return entity ID."""
-        return self.state.entity_id if self.entity_id is None else self.entity_id
+        return self.state.entity_id if self.entity_id_f is None else self.entity_id_f
     
     @property
     def state_entity_id(self):
@@ -299,7 +299,7 @@ async def async_devices_sync(hass, data, payload):
 
     devices = []
     
-    def add_google_entity(entity,devices):
+    async def add_google_entity(entity,devices):
         serialized = await entity.sync_serialize()
 
         if serialized is None:
@@ -317,9 +317,9 @@ async def async_devices_sync(hass, data, payload):
         if state.domain==script.DOMAIN and state.entity_id not in data.config.entity_config:
             for ek,_ in data.config.entity_config.items():
                 if state.entity_id in ek:
-                    add_google_entity(_GoogleEntity(hass, data.config, state, entity_id=ek), devices)
+                    await add_google_entity(_GoogleEntity(hass, data.config, state, entity_id=ek), devices)
         else:
-            add_google_entity(_GoogleEntity(hass, data.config, state),devices)
+            await add_google_entity(_GoogleEntity(hass, data.config, state),devices)
         
 
     response = {
