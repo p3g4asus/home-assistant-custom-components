@@ -202,7 +202,7 @@ class BrightnessTrait(_Trait):
             except:
                 _LOGGER.error('Could not render attribute_template %s: %s',
                     self.state.entity_id, s)
-            response['brightness'] = br
+            response['brightness'] = br if br>=0 and br<=100 else 0
         else:
             response['brightness'] = 50
 
