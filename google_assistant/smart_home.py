@@ -3,6 +3,7 @@ from asyncio import gather
 from collections.abc import Mapping
 from itertools import product
 import logging
+import re
 
 from homeassistant.util.decorator import Registry
 
@@ -28,13 +29,14 @@ from homeassistant.components import (
 )
 
 
+
 from . import trait
 from .const import (
     TYPE_LIGHT, TYPE_LOCK, TYPE_SCENE, TYPE_SWITCH, TYPE_VACUUM,
     TYPE_THERMOSTAT, TYPE_FAN, TYPE_CAMERA, TYPE_BLINDS,
-    CONF_ALIASES, CONF_ROOM_HINT,
+    CONF_ALIASES, CONF_ROOM_HINT, CONF_STATE_ONOFF_TEMPLATE,
     ERR_FUNCTION_NOT_SUPPORTED, ERR_PROTOCOL_ERROR, ERR_DEVICE_OFFLINE,
-    ERR_UNKNOWN_ERROR,
+    ERR_UNKNOWN_ERROR,CONF_STATE_BRIGHTNESS_TEMPLATE,
     EVENT_COMMAND_RECEIVED, EVENT_SYNC_RECEIVED, EVENT_QUERY_RECEIVED
 )
 from .helpers import SmartHomeError, RequestData
@@ -72,17 +74,30 @@ def deep_update(target, source):
 class _GoogleEntity:
     """Adaptation of Entity expressed in Google's terms."""
 
-    def __init__(self, hass, config, state):
+    @staticmethod
+    def state_entity_id_from_entity_id(entity_id):
+        mo = re.search("_kkk_[a-zA-Z0-9]+", entity_id)
+        if mo:
+            if mo.start()>0:
+                return entity_id[:mo.start()]
+        return None
+
+    def __init__(self, hass, config, state, entity_id=None):
         self.hass = hass
         self.config = config
         self.state = state
         self._traits = None
+        self.entity_id = entity_id
 
     @property
     def entity_id(self):
         """Return entity ID."""
+        return self.state.entity_id if self.entity_id is None else self.entity_id
+    
+    @property
+    def state_entity_id(self):
         return self.state.entity_id
-
+        
     @callback
     def traits(self):
         """Return traits for entity."""
@@ -92,10 +107,10 @@ class _GoogleEntity:
         state = self.state
         domain = state.domain
         features = state.attributes.get(ATTR_SUPPORTED_FEATURES, 0)
-
-        self._traits = [Trait(self.hass, state, self.config)
+        entity_config = self.config.entity_config.get(self.entity_id, {})
+        self._traits = [Trait(self.hass, state, self.config, entity_config)
                         for Trait in trait.TRAITS
-                        if Trait.supported(domain, features)]
+                        if Trait.supported(domain, features, entity_config)]
         return self._traits
 
     async def sync_serialize(self):
@@ -111,7 +126,7 @@ class _GoogleEntity:
         if state.state == STATE_UNAVAILABLE:
             return None
 
-        entity_config = self.config.entity_config.get(state.entity_id, {})
+        entity_config = self.config.entity_config.get(self.entity_id, {})
         name = (entity_config.get(CONF_NAME) or state.name).strip()
 
         # If an empty string
@@ -125,14 +140,17 @@ class _GoogleEntity:
             return None
 
         device = {
-            'id': state.entity_id,
+            'id': self.entity_id,
             'name': {
                 'name': name
             },
             'attributes': {},
             'traits': [trait.name for trait in traits],
             'willReportState': False,
-            'type': DOMAIN_TO_GOOGLE_TYPES[state.domain],
+            'type': TYPE_LIGHT if state.domain==script.DOMAIN and \
+                (CONF_STATE_BRIGHTNESS_TEMPLATE in entity_config or\
+                 CONF_STATE_ONOFF_TEMPLATE in entity_config) else \
+                DOMAIN_TO_GOOGLE_TYPES[state.domain],
         }
 
         # use aliases
@@ -202,12 +220,12 @@ class _GoogleEntity:
             raise SmartHomeError(
                 ERR_FUNCTION_NOT_SUPPORTED,
                 'Unable to execute {} for {}'.format(command,
-                                                     self.state.entity_id))
+                                                     self.entity_id))
 
     @callback
     def async_update(self):
         """Update the entity with latest info from Home Assistant."""
-        self.state = self.hass.states.get(self.entity_id)
+        self.state = self.hass.states.get(self.state.entity_id)
 
         if self._traits is None:
             return
@@ -280,21 +298,29 @@ async def async_devices_sync(hass, data, payload):
         context=data.context)
 
     devices = []
+    
+    def add_google_entity(entity,devices):
+        serialized = await entity.sync_serialize()
+
+        if serialized is None:
+            _LOGGER.debug("No mapping for %s domain", entity.state)
+            return
+
+        devices.append(serialized)
+        
     for state in hass.states.async_all():
         if state.entity_id in CLOUD_NEVER_EXPOSED_ENTITIES:
             continue
 
         if not data.config.should_expose(state):
             continue
-
-        entity = _GoogleEntity(hass, data.config, state)
-        serialized = await entity.sync_serialize()
-
-        if serialized is None:
-            _LOGGER.debug("No mapping for %s domain", entity.state)
-            continue
-
-        devices.append(serialized)
+        if state.domain==script.DOMAIN and state.entity_id not in data.config.entity_config:
+            for ek,_ in data.config.entity_config.items():
+                if state.entity_id in ek:
+                    add_google_entity(_GoogleEntity(hass, data.config, state, entity_id=ek), devices)
+        else:
+            add_google_entity(_GoogleEntity(hass, data.config, state),devices)
+        
 
     response = {
         'agentUserId': data.context.user_id,
@@ -313,13 +339,20 @@ async def async_devices_query(hass, data, payload):
     devices = {}
     for device in payload.get('devices', []):
         devid = device['id']
-        state = hass.states.get(devid)
+        state_entity_id = _GoogleEntity.state_entity_id_from_entity_id(devid)
+        if state_entity_id is None:
+            params_present = False
+            state_entity_id = devid
+        else:
+            params_present = True
+        state = hass.states.get(state_entity_id)
 
         hass.bus.async_fire(
             EVENT_QUERY_RECEIVED,
             {
                 'request_id': data.request_id,
-                ATTR_ENTITY_ID: devid,
+                ATTR_ENTITY_ID: state_entity_id,
+                'full_entity_id': devid
             },
             context=data.context)
 
@@ -328,7 +361,7 @@ async def async_devices_query(hass, data, payload):
             devices[devid] = {'online': False}
             continue
 
-        entity = _GoogleEntity(hass, data.config, state)
+        entity = _GoogleEntity(hass, data.config, state, entity_id=devid if params_present else None)
         devices[devid] = entity.query_serialize()
 
     return {'devices': devices}
@@ -347,12 +380,20 @@ async def handle_devices_execute(hass, data, payload):
         for device, execution in product(command['devices'],
                                          command['execution']):
             entity_id = device['id']
+            
+            state_entity_id = _GoogleEntity.state_entity_id_from_entity_id(entity_id)
+            if state_entity_id is None:
+                params_present = False
+                state_entity_id = entity_id
+            else:
+                params_present = True
 
             hass.bus.async_fire(
                 EVENT_COMMAND_RECEIVED,
                 {
                     'request_id': data.request_id,
-                    ATTR_ENTITY_ID: entity_id,
+                    ATTR_ENTITY_ID: state_entity_id,
+                    "full_entity_id": entity_id,
                     'execution': execution
                 },
                 context=data.context)
@@ -362,7 +403,7 @@ async def handle_devices_execute(hass, data, payload):
                 continue
 
             if entity_id not in entities:
-                state = hass.states.get(entity_id)
+                state = hass.states.get(state_entity_id)
 
                 if state is None:
                     results[entity_id] = {
@@ -372,7 +413,7 @@ async def handle_devices_execute(hass, data, payload):
                     }
                     continue
 
-                entities[entity_id] = _GoogleEntity(hass, data.config, state)
+                entities[entity_id] = _GoogleEntity(hass, data.config, state,entity_id=entity_id if params_present else None)
 
             try:
                 await entities[entity_id].execute(execution['command'],

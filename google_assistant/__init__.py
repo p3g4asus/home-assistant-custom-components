@@ -20,7 +20,8 @@ from .const import (
     CONF_EXPOSED_DOMAINS, DEFAULT_EXPOSED_DOMAINS, CONF_API_KEY,
     SERVICE_REQUEST_SYNC, REQUEST_SYNC_BASE_URL, CONF_ENTITY_CONFIG,
     CONF_EXPOSE, CONF_ALIASES, CONF_ROOM_HINT, CONF_ALLOW_UNLOCK,
-    DEFAULT_ALLOW_UNLOCK
+    DEFAULT_ALLOW_UNLOCK, CONF_DATA, CONF_DATA_TEMPLATE,
+    CONF_STATE_ONOFF_TEMPLATE, CONF_STATE_BRIGHTNESS_TEMPLATE
 )
 from .const import EVENT_COMMAND_RECEIVED, EVENT_SYNC_RECEIVED  # noqa: F401
 from .const import EVENT_QUERY_RECEIVED  # noqa: F401
@@ -35,6 +36,10 @@ ENTITY_SCHEMA = vol.Schema({
     vol.Optional(CONF_EXPOSE): cv.boolean,
     vol.Optional(CONF_ALIASES): vol.All(cv.ensure_list, [cv.string]),
     vol.Optional(CONF_ROOM_HINT): cv.string,
+    vol.Optional(CONF_DATA): {cv.slug:cv.string},
+    vol.Optional(CONF_DATA_TEMPLATE): cv.template,
+    vol.Optional(CONF_STATE_ONOFF_TEMPLATE): cv.template,
+    vol.Optional(CONF_STATE_BRIGHTNESS_TEMPLATE): cv.template,
 })
 
 GOOGLE_ASSISTANT_SCHEMA = vol.Schema({

@@ -1,5 +1,6 @@
 """Implement the Google Smart Home traits."""
 import logging
+import json
 
 from homeassistant.components import (
     camera,
@@ -33,6 +34,10 @@ from homeassistant.core import DOMAIN as HA_DOMAIN
 from homeassistant.util import color as color_util, temperature as temp_util
 from .const import ERR_VALUE_OUT_OF_RANGE
 from .helpers import SmartHomeError
+from homeassistant.components.google_assistant.const import (CONF_DATA,
+             CONF_DATA_TEMPLATE, CONF_STATE_BRIGHTNESS_TEMPLATE,
+             CONF_STATE_ONOFF_TEMPLATE)
+from homeassistant.exceptions import TemplateError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -91,11 +96,12 @@ class _Trait:
 
     commands = []
 
-    def __init__(self, hass, state, config):
+    def __init__(self, hass, state, config, entity_config):
         """Initialize a trait for a state."""
         self.hass = hass
         self.state = state
         self.config = config
+        self.entity_config = entity_config
 
     def sync_attributes(self):
         """Return attributes for a sync request."""
@@ -112,6 +118,30 @@ class _Trait:
     async def execute(self, command, data, params):
         """Execute a trait command."""
         raise NotImplementedError
+    
+    async def manage_script_template(self,template_variables,context):
+        s = ''
+        try:
+            if CONF_DATA in self.entity_config:
+                attributes = self.entity_config[CONF_DATA]
+            elif CONF_DATA_TEMPLATE in self.entity_config:
+                template = self.entity_config[CONF_DATA_TEMPLATE]
+                template.hass = self.hass
+                s = template.async_render(template_variables)
+                attributes = json.loads(s)
+            else:
+                attributes = dict()
+            await self.hass.services.async_call(
+                self.state.domain, self.state.entity_id, 
+                attributes, blocking=False,
+                context=context)
+        except TemplateError as ex:
+            _LOGGER.error('Could not render attribute_template %s: %s',
+                self.state.entity_id, ex)
+        except:
+            _LOGGER.error('Could not render attribute_template %s: %s',
+                self.state.entity_id, s)
+        return
 
 
 @register_trait
@@ -127,12 +157,14 @@ class BrightnessTrait(_Trait):
     ]
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         if domain == light.DOMAIN:
             return features & light.SUPPORT_BRIGHTNESS
         if domain == media_player.DOMAIN:
             return features & media_player.SUPPORT_VOLUME_SET
+        if domain==script.DOMAIN:
+            return CONF_STATE_BRIGHTNESS_TEMPLATE in entity_config
 
         return False
 
@@ -156,6 +188,23 @@ class BrightnessTrait(_Trait):
             if level is not None:
                 # Convert 0.0-1.0 to 0-255
                 response['brightness'] = int(level * 100)
+        elif CONF_STATE_BRIGHTNESS_TEMPLATE in self.entity_config:
+            s = ''
+            br = 0
+            try:
+                template = self.entity_config[CONF_STATE_BRIGHTNESS_TEMPLATE]
+                template.hass = self.hass
+                s = template.async_render({})
+                br = int(s)
+            except TemplateError as ex:
+                _LOGGER.error('Could not render attribute_template %s: %s',
+                    self.state.entity_id, ex)
+            except:
+                _LOGGER.error('Could not render attribute_template %s: %s',
+                    self.state.entity_id, s)
+            response['brightness'] = br
+        else:
+            response['brightness'] = 50
 
         return response
 
@@ -176,6 +225,8 @@ class BrightnessTrait(_Trait):
                     media_player.ATTR_MEDIA_VOLUME_LEVEL:
                     params['brightness'] / 100
                 }, blocking=True, context=data.context)
+        elif domain == script.DOMAIN:
+            self.manage_script_template({ 'on': -1,'variable': params['brightness'] }, data.context)
 
 
 @register_trait
@@ -193,7 +244,7 @@ class CameraStreamTrait(_Trait):
     stream_info = None
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         if domain == camera.DOMAIN:
             return features & camera.SUPPORT_STREAM
@@ -236,16 +287,21 @@ class OnOffTrait(_Trait):
     ]
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
-        return domain in (
+        if domain in (
             group.DOMAIN,
             input_boolean.DOMAIN,
             switch.DOMAIN,
             fan.DOMAIN,
             light.DOMAIN,
             media_player.DOMAIN,
-        )
+        ) or (domain==script.DOMAIN and \
+              (CONF_STATE_BRIGHTNESS_TEMPLATE in entity_config or\
+               CONF_STATE_ONOFF_TEMPLATE in entity_config)):
+            return True
+        return False
+            
 
     def sync_attributes(self):
         """Return OnOff attributes for a sync request."""
@@ -253,7 +309,19 @@ class OnOffTrait(_Trait):
 
     def query_attributes(self):
         """Return OnOff query attributes."""
-        return {'on': self.state.state != STATE_OFF}
+        s = self.state.state
+        if self.state.domain==script.DOMAIN and CONF_STATE_ONOFF_TEMPLATE in self.entity_config:
+            try:
+                template = self.entity_config[CONF_STATE_ONOFF_TEMPLATE]
+                template.hass = self.hass
+                s = template.async_render({})
+            except TemplateError as ex:
+                _LOGGER.error('Could not render attribute_template %s: %s',
+                    self.state.entity_id, ex)
+            except:
+                _LOGGER.error('Could not render attribute_template %s: %s',
+                    self.state.entity_id, s)
+        return {'on': s != STATE_OFF}
 
     async def execute(self, command, data, params):
         """Execute an OnOff command."""
@@ -262,7 +330,9 @@ class OnOffTrait(_Trait):
         if domain == group.DOMAIN:
             service_domain = HA_DOMAIN
             service = SERVICE_TURN_ON if params['on'] else SERVICE_TURN_OFF
-
+        elif domain == script.DOMAIN:
+            self.manage_script_template({ 'on': 1 if params['on'] else 0,'variable': -1 }, data.context)
+            return
         else:
             service_domain = domain
             service = SERVICE_TURN_ON if params['on'] else SERVICE_TURN_OFF
@@ -285,7 +355,7 @@ class ColorSpectrumTrait(_Trait):
     ]
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         if domain != light.DOMAIN:
             return False
@@ -341,7 +411,7 @@ class ColorTemperatureTrait(_Trait):
     ]
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         if domain != light.DOMAIN:
             return False
@@ -414,9 +484,11 @@ class SceneTrait(_Trait):
     ]
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
-        return domain in (scene.DOMAIN, script.DOMAIN)
+        return domain == scene.DOMAIN or\
+            (domain==script.DOMAIN and CONF_STATE_BRIGHTNESS_TEMPLATE not in entity_config and\
+             CONF_STATE_ONOFF_TEMPLATE not in entity_config)
 
     def sync_attributes(self):
         """Return scene attributes for a sync request."""
@@ -430,11 +502,14 @@ class SceneTrait(_Trait):
     async def execute(self, command, data, params):
         """Execute a scene command."""
         # Don't block for scripts as they can be slow.
-        await self.hass.services.async_call(
-            self.state.domain, SERVICE_TURN_ON, {
-                ATTR_ENTITY_ID: self.state.entity_id
-            }, blocking=self.state.domain != script.DOMAIN,
-            context=data.context)
+        if self.state.domain==script.DOMAIN:
+            self.manage_script_template({}, data.context)
+        else:
+            await self.hass.services.async_call(
+                self.state.domain, SERVICE_TURN_ON, {
+                    ATTR_ENTITY_ID: self.state.entity_id
+                }, blocking=self.state.domain != script.DOMAIN,
+                context=data.context)
 
 
 @register_trait
@@ -450,7 +525,7 @@ class DockTrait(_Trait):
     ]
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         return domain == vacuum.DOMAIN
 
@@ -484,7 +559,7 @@ class StartStopTrait(_Trait):
     ]
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         return domain == vacuum.DOMAIN
 
@@ -554,7 +629,7 @@ class TemperatureSettingTrait(_Trait):
     google_to_hass = {value: key for key, value in hass_to_google.items()}
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         if domain != climate.DOMAIN:
             return False
@@ -739,7 +814,7 @@ class LockUnlockTrait(_Trait):
     ]
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         return domain == lock.DOMAIN
 
@@ -790,7 +865,7 @@ class FanSpeedTrait(_Trait):
     }
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         if domain != fan.DOMAIN:
             return False
@@ -941,7 +1016,7 @@ class ModesTrait(_Trait):
     }
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         if domain != media_player.DOMAIN:
             return False
@@ -1042,7 +1117,7 @@ class OpenCloseTrait(_Trait):
     ]
 
     @staticmethod
-    def supported(domain, features):
+    def supported(domain, features, entity_config):
         """Test if state is supported."""
         return domain == cover.DOMAIN
 

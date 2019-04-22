@@ -12,6 +12,10 @@ CONF_ALIASES = 'aliases'
 CONF_API_KEY = 'api_key'
 CONF_ROOM_HINT = 'room'
 CONF_ALLOW_UNLOCK = 'allow_unlock'
+CONF_DATA = "data"
+CONF_DATA_TEMPLATE = "data_template"
+CONF_STATE_ONOFF_TEMPLATE = "onoff_template"
+CONF_STATE_BRIGHTNESS_TEMPLATE = "brightness_template"
 
 DEFAULT_EXPOSE_BY_DEFAULT = True
 DEFAULT_EXPOSED_DOMAINS = [
