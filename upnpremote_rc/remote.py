@@ -14,7 +14,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 import traceback
 
-REQUIREMENTS = ['async-upnp-client==0.14.7']
+REQUIREMENTS = ['https://github.com/p3g4asus/async_upnp_client/archive/0.14.25.zip#async-upnp-client==0.14.25']
 _LOGGER = logging.getLogger(__name__)
 
 DATA_KEY = 'upnpremote_rc'
