@@ -14,7 +14,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 import traceback
 
-REQUIREMENTS = ['https://github.com/p3g4asus/async_upnp_client/archive/0.14.25.zip#async-upnp-client==0.14.25']
+REQUIREMENTS = ['https://github.com/p3g4asus/async_upnp_client/archive/0.15.0.zip#async-upnp-client==0.15.0']
 _LOGGER = logging.getLogger(__name__)
 
 DATA_KEY = 'upnpremote_rc'
@@ -125,7 +125,7 @@ class RCRemote(RemoteDevice):
         self._service = None
         self._states = dict.fromkeys(RCRemote.RC_STATES,-5)
         requester = AiohttpRequester(timeout)
-        self._factory = UpnpFactory(requester)
+        self._factory = UpnpFactory(requester,disable_unknown_out_argument_error=True)
         self._defaults = defs
 
     @property
