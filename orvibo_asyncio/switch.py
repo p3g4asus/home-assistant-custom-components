@@ -3,7 +3,7 @@ Created on 25 apr 2019
 
 @author: Matteo
 '''
-from homeassistant.components.orvibo_asyncio.const import CONF_BROADCAST_ADDRESS
+from .const import CONF_BROADCAST_ADDRESS
 """
 Support for Orvibo S20 Wifi Smart Switches.
 
