@@ -146,13 +146,15 @@ class S20Switch(SwitchDevice):
     async def async_turn_on(self, **kwargs):
         """Turn the device on."""
         try:
-            await self._s20.state_change(1)
+            if await self._s20.state_change(1):
+                await self.async_update_ha_state()
         except Exception as ex:
             _LOGGER.exception("Error while turning on S20, %s",ex)
 
     async def async_turn_off(self, **kwargs):
         """Turn the device off."""
         try:
-            await self._s20.state_change(0)
+            if await self._s20.state_change(0):
+                await self.async_update_ha_state()
         except Exception as ex:
             _LOGGER.exception("Error while turning off S20, %s",ex)
