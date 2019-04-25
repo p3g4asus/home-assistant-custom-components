@@ -20,7 +20,7 @@ import homeassistant.helpers.config_validation as cv
 from datetime import timedelta
 from homeassistant.util import (Throttle)
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=2)
-REQUIREMENTS = ['asyncio-orvibo==1.2']
+REQUIREMENTS = ['asyncio-orvibo>=1.2']
 
 _LOGGER = logging.getLogger(__name__)
 
