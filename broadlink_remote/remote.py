@@ -138,7 +138,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                 while (utcnow() - start_time) < timedelta(seconds=20):
                     packet = await hass.async_add_job(
                         device.check_data)
-                    if packet:
+                    if packet and not isinstance(packet, int):
                         log_msg = "Received packet is: r{} or h{}".\
                                   format(b64encode(packet).decode('utf8'),binascii.hexlify(packet).decode('utf8'))
                         _LOGGER.info(log_msg)

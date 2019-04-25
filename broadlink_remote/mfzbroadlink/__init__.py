@@ -551,10 +551,15 @@ class rm(device):
     packet = bytearray(16)
     packet[0] = 4
     response = self.send_packet(0x6a, packet)
-    err = response[0x22] | (response[0x23] << 8)
-    if err == 0:
-      payload = self.decrypt(bytes(response[0x38:]))
-      return payload[0x04:]
+    if response and len(response):
+        err = response[0x22] | (response[0x23] << 8)
+        if err == 0:
+          payload = self.decrypt(bytes(response[0x38:]))
+          return payload[0x04:]
+        else:
+          return err
+    else:
+        return None
 
   def send_data(self, data):
     packet = bytearray([0x02, 0x00, 0x00, 0x00])
