@@ -3,6 +3,7 @@ Created on 25 apr 2019
 
 @author: Matteo
 '''
+from homeassistant.components.orvibo_asyncio.const import CONF_BROADCAST_ADDRESS
 """
 Support for Orvibo S20 Wifi Smart Switches.
 
@@ -13,9 +14,9 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.components.switch import (SwitchDevice, PLATFORM_SCHEMA)
+from homeassistant.components.switch import (SwitchDevice, PLATFORM_SCHEMA, DOMAIN)
 from homeassistant.const import (
-    CONF_HOST, CONF_NAME, CONF_SWITCHES, CONF_MAC, CONF_DISCOVERY)
+    CONF_HOST, CONF_NAME, CONF_SWITCHES, CONF_MAC, CONF_DISCOVERY, CONF_TIMEOUT)
 import homeassistant.helpers.config_validation as cv
 from datetime import timedelta
 from homeassistant.util import (Throttle)
@@ -26,6 +27,13 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_NAME = 'Orvibo S20 Switch'
 DEFAULT_DISCOVERY = True
+DATA_KEY = "switch.orvibo_asyncio"
+
+SERVICE_DISCOVERY = 'orvibo_asyncio_switch_discovery'
+DISCOVERY_COMMAND_SCHEMA = vol.Schema({
+    vol.Optional(CONF_TIMEOUT, default=5): vol.All(int, vol.Range(min=0)),
+    vol.Optional(CONF_BROADCAST_ADDRESS, default='255.255.255.255'): cv.string,
+})
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_SWITCHES, default=[]):
@@ -64,9 +72,40 @@ async def async_setup_platform(hass, config, async_add_entities,
                 switch_data[v.hp[0]]["obj"] = v
     
     for _,data in switch_data.items():
+        if "obj" not in data:
+            data["obj"] = S20((data.get(CONF_HOST),PORT), mac=data.get(CONF_MAC))
         switches.append(S20Switch(data.get(CONF_NAME),\
-                      data["obj"] if "obj" in data else\
-                       S20((data.get(CONF_HOST),PORT), mac=data.get(CONF_MAC))))
+                      data["obj"]))
+    hass.data[DATA_KEY] = switch_data
+    
+    async def async_service_handler(service):
+        """Handle a learn command."""
+        if service.service != SERVICE_DISCOVERY:
+            _LOGGER.error("We should not handle service: %s", service.service)
+            return
+        
+        switch_data = hass.data[DATA_KEY]
+        timeout = service.data.get(CONF_TIMEOUT,5)
+        broadcast = service.data.get(CONF_BROADCAST_ADDRESS,'255.255.255.255s')
+        new_switches = []
+        disc = await S20.discovery(broadcast_address=broadcast,timeout=timeout)
+        for _,v in disc.items():
+            if v.hp[0] not in switch_data:
+                mac =  S20.print_mac(v.mac)
+                switch_data[v.hp[0]] = {\
+                    CONF_NAME: "s_"+mac,\
+                    CONF_MAC: mac,\
+                    CONF_HOST: v.hp[0],\
+                    "obj": v}
+                _LOGGER.info("Discovered new S20 device %s",v)
+                new_switches.append(v)
+            else:
+                _LOGGER.info("Re-Discovered S20 device %s",v)
+        if new_switches:
+            async_add_entities(switches)
+
+    hass.services.async_register(DOMAIN, SERVICE_DISCOVERY, async_service_handler,
+                                 schema=DISCOVERY_COMMAND_SCHEMA)
 
     async_add_entities(switches)
 
