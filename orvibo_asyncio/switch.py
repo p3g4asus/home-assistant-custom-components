@@ -102,7 +102,7 @@ async def async_setup_platform(hass, config, async_add_entities,
             else:
                 _LOGGER.info("Re-Discovered S20 device %s",v)
         if new_switches:
-            async_add_entities(switches)
+            async_add_entities(new_switches)
 
     hass.services.async_register(DOMAIN, SERVICE_DISCOVERY, async_service_handler,
                                  schema=DISCOVERY_COMMAND_SCHEMA)
