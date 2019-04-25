@@ -92,13 +92,14 @@ async def async_setup_platform(hass, config, async_add_entities,
         for _,v in disc.items():
             if v.hp[0] not in switch_data:
                 mac =  S20.print_mac(v.mac)
+                name = "s_"+mac
                 switch_data[v.hp[0]] = {\
-                    CONF_NAME: "s_"+mac,\
+                    CONF_NAME: name,\
                     CONF_MAC: mac,\
                     CONF_HOST: v.hp[0],\
                     "obj": v}
                 _LOGGER.info("Discovered new S20 device %s",v)
-                new_switches.append(v)
+                new_switches.append(S20Switch(name,v))
             else:
                 _LOGGER.info("Re-Discovered S20 device %s",v)
         if new_switches:
