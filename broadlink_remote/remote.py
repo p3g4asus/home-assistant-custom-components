@@ -27,11 +27,12 @@ REQUIREMENTS = ['broadlink==0.9.0']
 
 _LOGGER = logging.getLogger(__name__)
 
-SERVICE_LEARN = 'broadlink_remote_learn_command'
+SERVICE_LEARN = 'broadlink_remote_learn'
 DATA_KEY = 'remote.broadlink_remote'
 
 CONF_SLOT = 'slot'
 CONF_COMMANDS = 'commands'
+CONF_NUMBER_OK_KEYS = "keyn"
 
 DEFAULT_TIMEOUT = 10
 DEFAULT_SLOT = 1
@@ -41,6 +42,7 @@ LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Optional(CONF_TIMEOUT, default=10): vol.All(int, vol.Range(min=0)),
     vol.Optional(CONF_SLOT, default=1):
         vol.All(int, vol.Range(min=1, max=1000000)),
+    vol.Optional(CONF_NUMBER_OK_KEYS,default=1): vol.All(int, vol.Range(min=1)),
 })
 
 COMMAND_SCHEMA = vol.Schema({
@@ -127,30 +129,30 @@ async def async_setup_platform(hass, config, async_add_entities,
         if len(msg)==0 and not auth:
             msg = "Failed to connect to device"
         if not len(msg):
-            auth = await hass.async_add_executor_job(device.enter_learning, slot)
-            if auth is None or (auth[0x22] | (auth[0x23] << 8))!=0:
-                msg = "Failed to enter learning mode"
-            else:
-                timeout = service.data.get(CONF_TIMEOUT, entity.timeout)
-        
-                _LOGGER.info("Press the key you want Home Assistant to learn")
-                start_time = utcnow()
-                while (utcnow() - start_time) < timedelta(seconds=20):
-                    packet = await hass.async_add_job(
-                        device.check_data)
-                    if packet and not isinstance(packet, int):
-                        log_msg = "Received packet is: r{} or h{}".\
-                                  format(b64encode(packet).decode('utf8'),binascii.hexlify(packet).decode('utf8'))
-                        _LOGGER.info(log_msg)
-                        hass.components.persistent_notification.async_create(
-                            log_msg, title='Broadlink remote')
-                        return
-                    await asyncio.sleep(1, loop=hass.loop)
-            msg = "Did not received any signal"
-        entity._device = rm(device.host, device.mac, device.timeout)
-        _LOGGER.error(msg)
-        hass.components.persistent_notification.async_create(
-            msg, title='Broadlink remote')
+            timeout = service.data.get(CONF_TIMEOUT, entity.timeout)
+            for _ in range(service.data.get(CONF_NUMBER_OK_KEYS,1)):
+                auth = await hass.async_add_executor_job(device.enter_learning, slot)
+                if auth is None or (auth[0x22] | (auth[0x23] << 8))!=0:
+                    msg = "Failed to enter learning mode"
+                else:
+                    _LOGGER.info("Press the key you want Home Assistant to learn")
+                    start_time = utcnow()
+                    msg = ''
+                    while (utcnow() - start_time) < timedelta(seconds=timeout) and not len(msg):
+                        packet = await hass.async_add_job(device.check_data)
+                        if packet and not isinstance(packet, int):
+                            msg = "Received packet is: r{} or h{}".\
+                                      format(b64encode(packet).decode('utf8'),binascii.hexlify(packet).decode('utf8'))
+                        
+                        await asyncio.sleep(1, loop=hass.loop)
+                    if not len(msg):
+                        msg = "Did not receive any key"
+                _LOGGER.info(msg)
+                hass.components.persistent_notification.async_create(
+                    msg, title='Broadlink remote')
+        else:
+            _LOGGER.error(msg)
+            hass.components.persistent_notification.async_create(msg, title='Broadlink remote')
 
     hass.services.async_register(DOMAIN, SERVICE_LEARN, async_service_handler,
                                  schema=LEARN_COMMAND_SCHEMA)
