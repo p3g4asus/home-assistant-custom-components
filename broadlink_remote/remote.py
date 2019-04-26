@@ -30,18 +30,14 @@ _LOGGER = logging.getLogger(__name__)
 SERVICE_LEARN = 'broadlink_remote_learn'
 DATA_KEY = 'remote.broadlink_remote'
 
-CONF_SLOT = 'slot'
 CONF_COMMANDS = 'commands'
 CONF_NUMBER_OK_KEYS = "keyn"
 
 DEFAULT_TIMEOUT = 10
-DEFAULT_SLOT = 1
 
 LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
     vol.Optional(CONF_TIMEOUT, default=10): vol.All(int, vol.Range(min=0)),
-    vol.Optional(CONF_SLOT, default=1):
-        vol.All(int, vol.Range(min=1, max=1000000)),
     vol.Optional(CONF_NUMBER_OK_KEYS,default=1): vol.All(int, vol.Range(min=1)),
 })
 
@@ -55,8 +51,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_MAC): cv.string,
     vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT):
         vol.All(int, vol.Range(min=0)),
-    vol.Optional(CONF_SLOT, default=DEFAULT_SLOT):
-        vol.All(int, vol.Range(min=1, max=1000000)),
     vol.Optional(CONF_COMMANDS, default={}):
         cv.schema_with_slug_keys(COMMAND_SCHEMA),
 }, extra=vol.ALLOW_EXTRA)
@@ -82,16 +76,13 @@ async def async_setup_platform(hass, config, async_add_entities,
 
     friendly_name = config.get(CONF_NAME, "broadlink_remote_" +
                                ip_addr.replace('.', '_'))
-    slot = config.get(CONF_SLOT)
     timeout = config.get(CONF_TIMEOUT)
     device = rm((ip_addr, 80), mac_addr, timeout)
 
     #cmnds = fill_commands(config.get(CONF_COMMANDS)
     cmnds = config.get(CONF_COMMANDS)
 
-    xiaomi_miio_remote = BroadlinkRemote(friendly_name, device, mac_addr,
-                                          slot,
-                                          cmnds)
+    xiaomi_miio_remote = BroadlinkRemote(friendly_name, device, mac_addr, cmnds)
 
     hass.data[DATA_KEY][friendly_name] = xiaomi_miio_remote
 
@@ -108,7 +99,7 @@ async def async_setup_platform(hass, config, async_add_entities,
             entity_id = entity_id[len("remote."):]
         entity = None
         for remote in hass.data[DATA_KEY].values():
-            if remote.entity_id == entity_id:
+            if remote.name == entity_id:
                 entity = remote
 
         if not entity:
@@ -117,7 +108,6 @@ async def async_setup_platform(hass, config, async_add_entities,
 
         device = entity._device
 
-        slot = service.data.get(CONF_SLOT, entity.slot)
         msg = "";
         auth = False
         try:
@@ -131,11 +121,13 @@ async def async_setup_platform(hass, config, async_add_entities,
         if not len(msg):
             timeout = service.data.get(CONF_TIMEOUT, entity.timeout)
             for _ in range(service.data.get(CONF_NUMBER_OK_KEYS,1)):
-                auth = await hass.async_add_executor_job(device.enter_learning, slot)
+                auth = await hass.async_add_executor_job(device.enter_learning)
                 if auth is None or (auth[0x22] | (auth[0x23] << 8))!=0:
                     msg = "Failed to enter learning mode"
                 else:
-                    _LOGGER.info("Press the key you want Home Assistant to learn")
+                    msg = "Press the key you want Home Assistant to learn"
+                    _LOGGER.info(msg)
+                    hass.components.persistent_notification.async_create(msg, title='Broadlink remote')
                     start_time = utcnow()
                     msg = ''
                     while (utcnow() - start_time) < timedelta(seconds=timeout) and not len(msg):
@@ -148,8 +140,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                     if not len(msg):
                         msg = "Did not receive any key"
                 _LOGGER.info(msg)
-                hass.components.persistent_notification.async_create(
-                    msg, title='Broadlink remote')
+                hass.components.persistent_notification.async_create(msg, title='Broadlink remote')
         else:
             _LOGGER.error(msg)
             hass.components.persistent_notification.async_create(msg, title='Broadlink remote')
@@ -161,13 +152,11 @@ async def async_setup_platform(hass, config, async_add_entities,
 class BroadlinkRemote(RemoteDevice):
     """Representation of a Xiaomi Miio Remote device."""
 
-    def __init__(self, friendly_name, device, unique_id,
-                 slot, commands):
+    def __init__(self, friendly_name, device, unique_id, commands):
         """Initialize the remote."""
         self._name = friendly_name
         self._device = device
         self._unique_id = unique_id
-        self._slot = slot
         self._state = "off"
         self._commands = commands
 
@@ -185,11 +174,6 @@ class BroadlinkRemote(RemoteDevice):
     def device(self):
         """Return the remote object."""
         return self._device
-
-    @property
-    def slot(self):
-        """Return the slot to save learned command."""
-        return self._slot
 
     @property
     def timeout(self):

@@ -92,8 +92,10 @@ async def async_setup_platform(hass, config, async_add_entities,
                     "obj": v,
                     CONF_TIMEOUT: DEFAULT_TIMEOUT,
                     CONF_COMMANDS: []}
+                _LOGGER.info("Discovered new device %s",v)
             else:
                 remote_data[v.hp[0]]["obj"] = v
+                _LOGGER.info("Re-Discovered new device %s",v)
     
     for _,data in remote_data.items():
         if "obj" not in data:
@@ -113,18 +115,20 @@ async def async_setup_platform(hass, config, async_add_entities,
                 entity_id = entity_id[len("remote."):]
             entity = None
             for remote in hass.data[DATA_KEY].values():
-                if remote.name == entity_id:
+                if remote[CONF_NAME] == entity_id:
                     entity = remote
     
             if not entity:
                 _LOGGER.error("entity_id: '%s' not found", entity_id)
                 return
     
-            device = entity._device
+            device = entity["obj"]
             msg = "";
             for _ in range(service.data.get(CONF_NUMBER_OK_KEYS,1)):
-                _LOGGER.info("Press the key you want Home Assistant to learn")
                 if await device.learn_ir_init():
+                    msg = "Press the key you want Home Assistant to learn"
+                    _LOGGER.info(msg)
+                    hass.components.persistent_notification.async_create(msg, title='AllOne remote')
                     timeout = service.data.get(CONF_TIMEOUT, DEFAULT_LEARN_TIMEOUT)
                     v = await device.learn_ir_get(timeout)
                     if not v:
