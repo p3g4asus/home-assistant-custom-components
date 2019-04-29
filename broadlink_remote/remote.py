@@ -37,7 +37,7 @@ DEFAULT_TIMEOUT = 10
 
 LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
-    vol.Optional(CONF_TIMEOUT, default=10): vol.All(int, vol.Range(min=0)),
+    vol.Optional(CONF_TIMEOUT, default=30): vol.All(int, vol.Range(min=10)),
     vol.Optional(CONF_NUMBER_OK_KEYS,default=1): vol.All(int, vol.Range(min=1)),
 })
 

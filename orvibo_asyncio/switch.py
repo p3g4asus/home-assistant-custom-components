@@ -27,11 +27,12 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_NAME = 'Orvibo S20 Switch'
 DEFAULT_DISCOVERY = True
+DEFAULT_TIMEOUT = 3
 DATA_KEY = "switch.orvibo_asyncio"
 
 SERVICE_DISCOVERY = 'orvibo_asyncio_switch_discovery'
 DISCOVERY_COMMAND_SCHEMA = vol.Schema({
-    vol.Optional(CONF_TIMEOUT, default=5): vol.All(int, vol.Range(min=0)),
+    vol.Optional(CONF_TIMEOUT, default=10): vol.All(int, vol.Range(min=5)),
     vol.Optional(CONF_BROADCAST_ADDRESS, default='255.255.255.255'): cv.string,
 })
 
@@ -40,6 +41,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
         vol.All(cv.ensure_list, [{
             vol.Required(CONF_HOST): cv.string,
             vol.Optional(CONF_MAC): cv.string,
+            vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(int, vol.Range(min=1)),
             vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string
         }]),
     vol.Optional(CONF_DISCOVERY, default=DEFAULT_DISCOVERY): cv.boolean,
@@ -66,6 +68,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                 switch_data[v.hp[0]] = {\
                     CONF_NAME: "s_"+mac,\
                     CONF_MAC: mac,\
+                    CONF_TIMEOUT: DEFAULT_TIMEOUT,\
                     CONF_HOST: v.hp[0],\
                     "obj": v}
             else:
@@ -73,7 +76,7 @@ async def async_setup_platform(hass, config, async_add_entities,
     
     for _,data in switch_data.items():
         if "obj" not in data:
-            data["obj"] = S20((data.get(CONF_HOST),PORT), mac=data.get(CONF_MAC))
+            data["obj"] = S20((data.get(CONF_HOST),PORT), mac=data.get(CONF_MAC),timeout=data.get(CONF_TIMEOUT))
         switches.append(S20Switch(data.get(CONF_NAME),\
                       data["obj"]))
     hass.data[DATA_KEY] = switch_data
@@ -96,6 +99,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                 switch_data[v.hp[0]] = {\
                     CONF_NAME: name,\
                     CONF_MAC: mac,\
+                    CONF_TIMEOUT: DEFAULT_TIMEOUT,\
                     CONF_HOST: v.hp[0],\
                     "obj": v}
                 _LOGGER.info("Discovered new S20 device %s",v)

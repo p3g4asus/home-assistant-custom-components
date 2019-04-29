@@ -1,6 +1,6 @@
 """Support for the Xiaomi IR Remote (Chuangmi IR)."""
-import logging
 import asyncio
+import logging
 from datetime import timedelta
 import re
 
@@ -12,177 +12,151 @@ from homeassistant.components.remote import (
     PLATFORM_SCHEMA, DOMAIN, ATTR_NUM_REPEATS, ATTR_DELAY_SECS,
     DEFAULT_DELAY_SECS, RemoteDevice, ATTR_HOLD_SECS, DEFAULT_HOLD_SECS)
 from homeassistant.const import (
-    CONF_NAME, CONF_HOST, CONF_MAC, CONF_TIMEOUT,
-    ATTR_ENTITY_ID, CONF_COMMAND, CONF_DISCOVERY, STATE_OFF,STATE_ON)
+    CONF_NAME, CONF_HOST, CONF_TIMEOUT,
+    ATTR_ENTITY_ID, CONF_COMMAND, CONF_ID, STATE_OFF, STATE_ON)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 import traceback
-from .const import CONF_BROADCAST_ADDRESS
 
-MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=30)
+MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=1)
 
-REQUIREMENTS = ['asyncio-orvibo>=1.2']
+REQUIREMENTS = ['pygocomma>=1.0']
 
 _LOGGER = logging.getLogger(__name__)
 
-SERVICE_LEARN = 'orvibo_asyncio_remote_learn'
-SERVICE_DISCOVERY = 'orvibo_asyncio_remote_discovery'
-DATA_KEY = 'remote.orvibo_asyncio'
+SERVICE_LEARN = 'gocomma_remote_learn'
+DATA_KEY = 'remote.gocomma'
 
 CONF_COMMANDS = 'commands'
-CONF_REMOTES = 'remotes'
 CONF_NUMBER_OK_KEYS = "keyn"
+CONF_KEY = "key"
 
-DEFAULT_LEARN_TIMEOUT = 30
-DEFAULT_TIMEOUT = 3
+STATE_LEARNING = "learning"
+
+DEFAULT_TIMEOUT = 10
 
 LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
-    vol.Optional(CONF_TIMEOUT, default=DEFAULT_LEARN_TIMEOUT): vol.All(int, vol.Range(min=10)),
+    vol.Optional(CONF_TIMEOUT, default=30): vol.All(int, vol.Range(min=10)),
     vol.Optional(CONF_NUMBER_OK_KEYS,default=1): vol.All(int, vol.Range(min=1)),
-})
-
-DISCOVERY_COMMAND_SCHEMA = vol.Schema({
-    vol.Optional(CONF_TIMEOUT, default=10): vol.All(int, vol.Range(min=5)),
-    vol.Optional(CONF_BROADCAST_ADDRESS, default='255.255.255.255'): cv.string,
 })
 
 COMMAND_SCHEMA = vol.Schema({
     vol.Required(CONF_COMMAND): vol.All(cv.ensure_list, [cv.string])
 })
 
-REMOTE_SCHEMA = vol.Schema({
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_NAME): cv.string,
     vol.Required(CONF_HOST): cv.string,
-    vol.Required(CONF_MAC): cv.string,
+    vol.Required(CONF_ID): cv.string,
+    vol.Required(CONF_KEY): cv.string,
     vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT):
-        vol.All(int, vol.Range(min=1)),
+        vol.All(int, vol.Range(min=0)),
     vol.Optional(CONF_COMMANDS, default={}):
         cv.schema_with_slug_keys(COMMAND_SCHEMA),
 }, extra=vol.ALLOW_EXTRA)
 
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-   vol.Required(CONF_REMOTES, default=[]):
-    vol.All(cv.ensure_list, [REMOTE_SCHEMA]),
-    vol.Optional(CONF_DISCOVERY, default=False): cv.boolean,
-})
-
 
 async def async_setup_platform(hass, config, async_add_entities,
                                discovery_info=None):
-    
-    from asyncio_orvibo.allone import AllOne
-    from asyncio_orvibo.orvibo_udp import PORT
+    """Set up the Xiaomi IR Remote (Chuangmi IR) platform."""
+    from pygocomma.r9 import (R9,DEFAULT_PORT)
+    ip_addr = config.get(CONF_HOST)
+    key = config.get(CONF_KEY)
+    idv = config.get(CONF_ID)
 
-    remote_data = {}
-    remotes = []
-    remote_conf = config.get(CONF_REMOTES, [config])
-    for remote in remote_conf:
-        remote_data[remote.get(CONF_HOST)] = remote
-    if config.get(CONF_DISCOVERY):
-        _LOGGER.info("Discovering AllOne remotes ...")
-        disc = await AllOne.discovery()
-        for _,v in disc.items():
-            if v.hp[0] not in remote_data:
-                mac =  AllOne.print_mac(v.mac)
-                remote_data[v.hp[0]] = {\
-                    CONF_NAME: "s_"+mac,\
-                    CONF_MAC: mac,\
-                    CONF_HOST: v.hp[0],\
-                    "obj": v,
-                    CONF_TIMEOUT: DEFAULT_TIMEOUT,
-                    CONF_COMMANDS: []}
-                _LOGGER.info("Discovered new device %s",v)
-            else:
-                remote_data[v.hp[0]]["obj"] = v
-                _LOGGER.info("Re-Discovered new device %s",v)
-    
-    for _,data in remote_data.items():
-        if "obj" not in data:
-            data["obj"] = AllOne((data.get(CONF_HOST),PORT), mac=data.get(CONF_MAC),timeout=data.get(CONF_TIMEOUT))
-        remotes.append(AllOneRemote(data.get(CONF_NAME),data.get(CONF_COMMANDS),\
-                      data["obj"]))
-    hass.data[DATA_KEY] = remote_data
-    
-    
-    async_add_entities(remotes)
+    # Create handler
+    # The Chuang Mi IR Remote Controller wants to be re-discovered every
+    # 5 minutes. As long as polling is disabled the device should be
+    # re-discovered (lazy_discover=False) in front of every command.
+
+    # Check that we can communicate with device.
+
+    if DATA_KEY not in hass.data:
+        hass.data[DATA_KEY] = {}
+
+    friendly_name = config.get(CONF_NAME)
+    timeout = config.get(CONF_TIMEOUT)
+    device = R9((ip_addr, DEFAULT_PORT),idv,key,timeout)
+
+    #cmnds = fill_commands(config.get(CONF_COMMANDS)
+    cmnds = config.get(CONF_COMMANDS)
+
+    xiaomi_miio_remote = R9Remote(friendly_name, device, cmnds)
+
+    hass.data[DATA_KEY][friendly_name] = xiaomi_miio_remote
+
+    async_add_entities([xiaomi_miio_remote])
 
     async def async_service_handler(service):
         """Handle a learn command."""
-        if service.service == SERVICE_LEARN:
-            entity_id = service.data.get(ATTR_ENTITY_ID)
-            if entity_id.startswith("remote."):
-                entity_id = entity_id[len("remote."):]
-            entity = None
-            for remote in hass.data[DATA_KEY].values():
-                if remote[CONF_NAME] == entity_id:
-                    entity = remote
-    
-            if not entity:
-                _LOGGER.error("entity_id: '%s' not found", entity_id)
-                return
-    
-            device = entity["obj"]
-            msg = "";
-            for _ in range(service.data.get(CONF_NUMBER_OK_KEYS,1)):
-                if await device.learn_ir_init():
+        if service.service != SERVICE_LEARN:
+            _LOGGER.error("We should not handle service: %s", service.service)
+            return
+
+        entity_id = service.data.get(ATTR_ENTITY_ID)
+        if entity_id.startswith("remote."):
+            entity_id = entity_id[len("remote."):]
+        entity = None
+        for remote in hass.data[DATA_KEY].values():
+            if remote.name == entity_id:
+                entity = remote
+
+        if not entity:
+            _LOGGER.error("entity_id: '%s' not found", entity_id)
+            return
+
+        device = entity._device
+
+        msg = "";
+        auth = False
+        pn = hass.components.persistent_notification
+        if await device.ping():
+            timeout = service.data.get(CONF_TIMEOUT, entity.timeout)
+            auth = await entity.enter_learning_mode()
+            if auth:
+                allnot = ''
+                for _ in range(service.data.get(CONF_NUMBER_OK_KEYS,1)):
                     msg = "Press the key you want Home Assistant to learn"
                     _LOGGER.info(msg)
-                    hass.components.persistent_notification.async_create(msg, title='AllOne remote')
-                    timeout = service.data.get(CONF_TIMEOUT, DEFAULT_LEARN_TIMEOUT)
-                    v = await device.learn_ir_get(timeout)
-                    if not v:
-                        msg = "Did not receive any key"
-                    else:
+                    pn.async_create(msg, title='Gocomma R9',notification_id='gocomma.remote.learning')
+                    packet = await entity.get_learned_key(timeout)
+                    if packet:
                         msg = "Received packet is: r{} or h{}".\
-                                  format(b64encode(v).decode('utf8'),binascii.hexlify(v).decode('utf8'))
+                                  format(b64encode(packet).decode('utf8'),binascii.hexlify(packet).decode('utf8'))
+                    else:
+                        msg = "Did not receive any key"
+                    _LOGGER.info(msg)
+                    allnot+=msg+'\n'
+                    pn.async_create(allnot, title='Gocomma R9',notification_id='gocomma.remote.learned')
+                    pn.async_dismiss(msg, title='Gocomma R9',notification_id='gocomma.remote.learning')
+                auth = await entity.exit_learning_mode()
+                if not auth:
+                    msg = "Failed exiting learning mode"
                 else:
-                    msg = "Cannot enter learning mode"
-                _LOGGER.info(msg)
-                hass.components.persistent_notification.async_create(msg, title='AllOne remote')
-        elif service.service == SERVICE_DISCOVERY:
-            remote_data = hass.data[DATA_KEY]
-            timeout = service.data.get(CONF_TIMEOUT,5)
-            broadcast = service.data.get(CONF_BROADCAST_ADDRESS,'255.255.255.255s')
-            new_remotes = []
-            disc = await AllOne.discovery(broadcast_address=broadcast,timeout=timeout)
-            for _,v in disc.items():
-                if v.hp[0] not in remote_data:
-                    mac =  AllOne.print_mac(v.mac)
-                    name = "s_"+mac
-                    remote_data[v.hp[0]] = {\
-                        CONF_NAME: name,\
-                        CONF_MAC: mac,\
-                        CONF_HOST: v.hp[0],\
-                        "obj": v,
-                        CONF_TIMEOUT: DEFAULT_TIMEOUT,
-                        CONF_COMMANDS: []}
-                    msg = "Discovered new AllOne device %s" % v
-                    new_remotes.append(AllOneRemote(name,[],v))
-                else:
-                    msg = "Re-Discovered AllOne device %s" % v
-                _LOGGER.info(msg)
-                hass.components.persistent_notification.async_create(
-                            msg, title='AllOne remote')
-            if new_remotes:
-                async_add_entities(new_remotes)
-            
+                    msg = ''
+            else:
+                msg = "Failed entering learning mode"
+        else:
+            msg = "Device is not answering to ping request"
+        if len(msg):
+            _LOGGER.error(msg)
+            pn.async_create(msg, title='Gocomma R9',notification_id='gocomma.remote.learning')
 
     hass.services.async_register(DOMAIN, SERVICE_LEARN, async_service_handler,
                                  schema=LEARN_COMMAND_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_DISCOVERY, async_service_handler,
-                                 schema=DISCOVERY_COMMAND_SCHEMA)
 
 
-class AllOneRemote(RemoteDevice):
+class R9Remote(RemoteDevice):
     """Representation of a Xiaomi Miio Remote device."""
 
-    def __init__(self, friendly_name, commands, device):
+    def __init__(self, friendly_name, device, commands):
         """Initialize the remote."""
         self._name = friendly_name
         self._device = device
+        self._state = STATE_OFF
         self._commands = commands
-        self._state = 'off'
+        self._states = dict(last_learned=b'')
 
     @property
     def name(self):
@@ -197,16 +171,47 @@ class AllOneRemote(RemoteDevice):
     @property
     def is_on(self):
         """Return False if device is unreachable, else True."""
-        return self._state == "on"
+        return self._state != STATE_OFF
 
     @property
     def should_poll(self):
         """We should not be polled for device up state."""
         return True
     
+    async def enter_learning_mode(self,timeout = -1,retry=3):
+        rv = await self._device.enter_learning_mode(timeout = timeout, retry = retry)
+        if rv:
+            self._state = STATE_LEARNING
+            await self.async_update()
+        return rv
+    
+    async def exit_learning_mode(self,timeout = -1,retry=3):
+        rv = await self._device.exit_learning_mode(timeout = timeout, retry = retry)
+        if rv:
+            self._state = STATE_ON
+            await self.async_update()
+        return rv
+    
+    async def get_learned_key(self,timeout = 30):
+        rv = await self._device.get_learned_key(timeout = timeout)
+        if rv:
+            self._states['last_learned'] = rv
+            await self.async_update()
+        return rv
+    
+    @property
+    def device_state_attributes(self):
+        """Hide remote by default."""
+        return self._states
+    
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    def update(self):
-        self._state = STATE_ON if self._device.subscribe_if_necessary() else STATE_OFF
+    async def async_update(self):
+        if await self._device.ping():
+            if self._state==STATE_OFF:
+                self._state = STATE_ON
+        else:
+            self._state = STATE_OFF
+            self._states['last_learned'] = b''
         _LOGGER.info("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):
@@ -222,7 +227,7 @@ class AllOneRemote(RemoteDevice):
     async def _send_command(self, packet, totretry):
         try:
             if type(packet) is tuple:
-                num = packet[1]            
+                num = packet[1]
                 pid = packet[0][0]
                 packet = packet[0][1:]
             else:
@@ -251,7 +256,7 @@ class AllOneRemote(RemoteDevice):
             num = 1
         for _ in range(num):
             _LOGGER.info("I am sending %s, Final len is %d",add,len(payload))
-            await self._device.emit_ir(payload,retry=totretry)
+            await self._device.send_ir(payload,retry=totretry)
         return False
                         
     def command2payloads(self,command):
