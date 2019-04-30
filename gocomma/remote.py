@@ -33,7 +33,7 @@ CONF_KEY = "key"
 
 STATE_LEARNING = "learning"
 
-DEFAULT_TIMEOUT = 10
+DEFAULT_TIMEOUT = 3
 
 LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
@@ -112,7 +112,7 @@ async def async_setup_platform(hass, config, async_add_entities,
         auth = False
         pn = hass.components.persistent_notification
         if await device.ping():
-            timeout = service.data.get(CONF_TIMEOUT, entity.timeout)
+            timeout = service.data.get(CONF_TIMEOUT, 30)
             auth = await entity.enter_learning_mode()
             if auth:
                 allnot = ''
@@ -156,7 +156,7 @@ class R9Remote(RemoteDevice):
         self._device = device
         self._state = STATE_OFF
         self._commands = commands
-        self._states = dict(last_learned=b'')
+        self._states = dict(last_learned='')
 
     @property
     def name(self):
@@ -182,21 +182,21 @@ class R9Remote(RemoteDevice):
         rv = await self._device.enter_learning_mode(timeout = timeout, retry = retry)
         if rv:
             self._state = STATE_LEARNING
-            await self.async_update()
+            await self.async_update_ha_state()
         return rv
     
     async def exit_learning_mode(self,timeout = -1,retry=3):
         rv = await self._device.exit_learning_mode(timeout = timeout, retry = retry)
         if rv:
             self._state = STATE_ON
-            await self.async_update()
+            await self.async_update_ha_state()
         return rv
     
     async def get_learned_key(self,timeout = 30):
         rv = await self._device.get_learned_key(timeout = timeout)
         if rv:
-            self._states['last_learned'] = rv
-            await self.async_update()
+            self._states['last_learned'] = binascii.hexlify(rv).decode('utf8')
+            await self.async_update_ha_state()
         return rv
     
     @property
@@ -206,13 +206,14 @@ class R9Remote(RemoteDevice):
     
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
-        if await self._device.ping():
-            if self._state==STATE_OFF:
-                self._state = STATE_ON
-        else:
-            self._state = STATE_OFF
-            self._states['last_learned'] = b''
-        _LOGGER.info("New state is %s",self._state)
+        if self._state!=STATE_LEARNING:
+            if await self._device.ping():
+                if self._state==STATE_OFF:
+                    self._state = STATE_ON
+            else:
+                self._state = STATE_OFF
+                self._states['last_learned'] = ''
+            _LOGGER.info("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):
         """Turn the device on."""
