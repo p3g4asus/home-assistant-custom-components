@@ -273,6 +273,8 @@ class BroadlinkRemote(RemoteDevice):
         if command in self._commands:
             _LOGGER.info("%s found in commands", command)
             return self._commands[command][CONF_COMMAND]
+        elif command.startswith('@'):
+             return [command[1:]]
         else:
             mo = re.search("^ch([0-9]+)$", command)
             if mo is not None and 'ch1' in self._commands:

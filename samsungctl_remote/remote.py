@@ -327,7 +327,7 @@ class SamsungCTLRemote(RemoteDevice):
             cc = samsungctl.Config.load(self._conffile)
             cc.log_level = samsungctl.Config.LOG_DEBUG
             self._config = cc
-        _LOGGER.info("Reiniting %s",self._config)
+            _LOGGER.info("Reiniting %s",self._config)
         self._remote = samsungctl.Remote(self._config)
         if not self._remote.open():
             self._remote = None
@@ -342,10 +342,12 @@ class SamsungCTLRemote(RemoteDevice):
                 await self.hass.async_add_job(self._reinit)
                 if self._remote is not None:
                     self._last_init = now
-            except:
-                _LOGGER.error("Reinit error: %s",traceback.format_exc())
+            except BaseException as ex:
+                _LOGGER.error("Reinit error: %s",ex)
                 await self._destroy_device()
-                
+            except:
+                _LOGGER.error("Reinit error")
+                await self._destroy_device()               
         return self._remote
     
 

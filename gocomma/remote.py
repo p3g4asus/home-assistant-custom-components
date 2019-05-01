@@ -16,7 +16,6 @@ from homeassistant.const import (
     ATTR_ENTITY_ID, CONF_COMMAND, CONF_ID, STATE_OFF, STATE_ON)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
-import traceback
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=1)
 
@@ -32,6 +31,8 @@ CONF_NUMBER_OK_KEYS = "keyn"
 CONF_KEY = "key"
 
 STATE_LEARNING = "learning"
+STATE_LEARNING_INIT = "learning_init"
+STATE_LEARNING_OK = "learning_ok"
 
 DEFAULT_TIMEOUT = 3
 
@@ -111,32 +112,42 @@ async def async_setup_platform(hass, config, async_add_entities,
         msg = "";
         auth = False
         pn = hass.components.persistent_notification
-        if await device.ping():
-            timeout = service.data.get(CONF_TIMEOUT, 30)
+        lastcmddict = await device.ask_last()
+        if "dps" in lastcmddict and "1" in lastcmddict["dps"] and lastcmddict["dps"]["1"]!="study":
             auth = await entity.enter_learning_mode()
+        else:
+            auth = True
+        if auth:
+            timeout = service.data.get(CONF_TIMEOUT, 30)
             if auth:
                 allnot = ''
-                for _ in range(service.data.get(CONF_NUMBER_OK_KEYS,1)):
-                    msg = "Press the key you want Home Assistant to learn"
-                    _LOGGER.info(msg)
-                    pn.async_create(msg, title='Gocomma R9',notification_id='gocomma.remote.learning')
-                    packet = await entity.get_learned_key(timeout)
-                    if packet:
-                        msg = "Received packet is: r{} or h{}".\
-                                  format(b64encode(packet).decode('utf8'),binascii.hexlify(packet).decode('utf8'))
-                    else:
-                        msg = "Did not receive any key"
-                    _LOGGER.info(msg)
-                    allnot+=msg+'\n'
-                    pn.async_create(allnot, title='Gocomma R9',notification_id='gocomma.remote.learned')
-                    pn.async_dismiss(msg, title='Gocomma R9',notification_id='gocomma.remote.learning')
-                auth = await entity.exit_learning_mode()
-                if not auth:
-                    msg = "Failed exiting learning mode"
-                else:
-                    msg = ''
+                numkeys = service.data.get(CONF_NUMBER_OK_KEYS,1)
+                for xx in range(numkeys):
+                    try:
+                        msg = "Press the key you want Home Assistant to learn %d/%d" %(xx+1,numkeys)
+                        _LOGGER.info(msg)
+                        pn.async_create(msg, title='Gocomma R9',notification_id='gocomma_remote_learning')
+                        packet = await entity.get_learned_key(timeout)
+                        if packet:
+                            msg = "Received packet is: r{} or h{}".\
+                                      format(b64encode(packet).decode('utf8'),binascii.hexlify(packet).decode('utf8'))
+                        else:
+                            msg = "Did not receive any key"
+                        _LOGGER.info(msg)
+                        allnot+=msg+'\n'
+                        pn.async_create(allnot, title='Gocomma R9',notification_id='gocomma_remote_learned')
+                        pn.async_dismiss(notification_id='gocomma_remote_learning')
+                    except BaseException as ex:
+                        _LOGGER.error("Learning error %s",ex)
+                msg = "Learning ends NOW"
+                _LOGGER.info(msg)
             else:
-                msg = "Failed entering learning mode"
+                msg = "Failed entering learning mode"                    
+            auth = await entity.exit_learning_mode()
+            if not auth:
+                msg = "Failed exiting learning mode"
+            else:
+                msg = ''
         else:
             msg = "Device is not answering to ping request"
         if len(msg):
@@ -179,9 +190,11 @@ class R9Remote(RemoteDevice):
         return True
     
     async def enter_learning_mode(self,timeout = -1,retry=3):
+        self._state = STATE_LEARNING_INIT
+        await self.async_update_ha_state()
         rv = await self._device.enter_learning_mode(timeout = timeout, retry = retry)
         if rv:
-            self._state = STATE_LEARNING
+            self._state = STATE_LEARNING_OK
             await self.async_update_ha_state()
         return rv
     
@@ -206,8 +219,8 @@ class R9Remote(RemoteDevice):
     
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
-        if self._state!=STATE_LEARNING:
-            if await self._device.ping():
+        if not self._state.startswith(STATE_LEARNING):
+            if await self._device.ask_last():
                 if self._state==STATE_OFF:
                     self._state = STATE_ON
             else:
@@ -250,8 +263,8 @@ class R9Remote(RemoteDevice):
                 return True
             else:
                 return False
-        except:
-            _LOGGER.error("Err1: %s ",traceback.format_exc())
+        except BaseException as ex:
+            _LOGGER.error("Err1: %s ",ex)
             return False
         if num<=0:
             num = 1
@@ -265,6 +278,8 @@ class R9Remote(RemoteDevice):
         if command in self._commands:
             _LOGGER.info("%s found in commands", command)
             return self._commands[command][CONF_COMMAND]
+        elif command.startswith('@'):
+             return [command[1:]]
         else:
             mo = re.search("^ch([0-9]+)$", command)
             if mo is not None and 'ch1' in self._commands:

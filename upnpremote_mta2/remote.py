@@ -88,9 +88,13 @@ class MainTVAgent2Remote(RemoteDevice):
                     return self._service
                 else:
                     self._destroy_device()
+            except BaseException as ex:
+                self._state = "off"
+                _LOGGER.error("Reinit Error %s: %s",self._url,ex)
+                return None
             except:
                 self._state = "off"
-                _LOGGER.error("Reinit %s: %s",self._url,traceback.format_exc())
+                _LOGGER.error("Reinit Error %s",self._url)
                 return None
         else:
             return self._service

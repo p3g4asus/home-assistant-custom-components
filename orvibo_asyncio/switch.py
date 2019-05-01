@@ -125,7 +125,6 @@ class S20Switch(SwitchDevice):
         self._s20 = s20
 
     @property
-    @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def should_poll(self):
         """Return the polling state."""
         return True
@@ -140,6 +139,7 @@ class S20Switch(SwitchDevice):
         """Return true if device is on."""
         return self._s20.state==1
 
+    @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
         """Update device state."""
         try:

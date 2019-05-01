@@ -105,9 +105,13 @@ class RCRemote(RemoteDevice):
                 self._service = self._device.service('urn:schemas-upnp-org:service:RenderingControl:1')
                 self._state = "on"
                 return self._service
+            except BaseException as ex:
+                self._state = "off"
+                _LOGGER.error("Reinit Error %s: %s",self._url,ex)
+                return None
             except:
                 self._state = "off"
-                _LOGGER.error("Reinit %s: %s",self._url,traceback.format_exc())
+                _LOGGER.error("Reinit Error %s",self._url)
                 return None
         else:
             return self._service

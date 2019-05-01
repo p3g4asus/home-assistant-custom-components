@@ -205,8 +205,8 @@ class AllOneRemote(RemoteDevice):
         return True
     
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    def update(self):
-        self._state = STATE_ON if self._device.subscribe_if_necessary() else STATE_OFF
+    async def async_update(self):
+        self._state = STATE_ON if await self._device.subscribe_if_necessary() else STATE_OFF
         _LOGGER.info("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):
