@@ -40,6 +40,7 @@ LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
     vol.Optional(CONF_TIMEOUT, default=30): vol.All(int, vol.Range(min=10)),
     vol.Optional(CONF_NUMBER_OK_KEYS,default=1): vol.All(int, vol.Range(min=1)),
+    vol.Optional(CONF_COMMANDS,default=[]): vol.All(cv.ensure_list, [cv.slug])
 })
 
 COMMAND_SCHEMA = vol.Schema({
@@ -122,19 +123,24 @@ async def async_setup_platform(hass, config, async_add_entities,
             if auth:
                 allnot = ''
                 numkeys = service.data.get(CONF_NUMBER_OK_KEYS,1)
+                keynames = service.data.get(CONF_COMMANDS,[])
                 for xx in range(numkeys):
                     try:
-                        msg = "Press the key you want Home Assistant to learn %d/%d" %(xx+1,numkeys)
+                        keyname = keynames[xx] if xx<len(keynames) else 'NA_%d' % (xx+1)
+                        msg = "Press the key you want Home Assistant to learn [%s] %d/%d" %(keyname,xx+1,numkeys)
                         _LOGGER.info(msg)
                         pn.async_create(msg, title='Gocomma R9',notification_id='gocomma_remote_learning')
-                        packet = await entity.get_learned_key(timeout)
+                        packet = await entity.get_learned_key(timeout,keyname)
                         if packet:
-                            msg = "Received packet is: r{} or h{}".\
-                                      format(b64encode(packet).decode('utf8'),binascii.hexlify(packet).decode('utf8'))
+                            b64k = b64encode(packet).decode('utf8')
+                            notif = '{}:\n    command:\n        - r{}\n'.format(keyname,b64k)
+                            msg = "Received is: r{} or h{}".\
+                                      format(b64k,binascii.hexlify(packet).decode('utf8'))
                         else:
+                            notif = ''
                             msg = "Did not receive any key"
                         _LOGGER.info(msg)
-                        allnot+=msg+'\n'
+                        allnot+=notif+'\n'
                         pn.async_create(allnot, title='Gocomma R9',notification_id='gocomma_remote_learned')
                         pn.async_dismiss(notification_id='gocomma_remote_learning')
                     except BaseException as ex:
@@ -167,7 +173,7 @@ class R9Remote(RemoteDevice):
         self._device = device
         self._state = STATE_OFF
         self._commands = commands
-        self._states = dict(last_learned='')
+        self._states = dict(last_learned=dict(name='',code=''),key_to_learn='')
 
     @property
     def name(self):
@@ -205,10 +211,14 @@ class R9Remote(RemoteDevice):
             await self.async_update_ha_state()
         return rv
     
-    async def get_learned_key(self,timeout = 30):
+    async def get_learned_key(self,timeout = 30,keyname = 'NA'):
+        self._states['key_to_learn'] = keyname
+        await self.async_update_ha_state()
         rv = await self._device.get_learned_key(timeout = timeout)
         if rv:
-            self._states['last_learned'] = binascii.hexlify(rv).decode('utf8')
+            self._states['key_to_learn'] = ''
+            self._states['last_learned']['name'] = keyname
+            self._states['last_learned']['code'] = binascii.hexlify(rv).decode('utf8')
             await self.async_update_ha_state()
         return rv
     
@@ -225,7 +235,8 @@ class R9Remote(RemoteDevice):
                     self._state = STATE_ON
             else:
                 self._state = STATE_OFF
-                self._states['last_learned'] = ''
+                self._states['last_learned']['name'] = ''
+                self._states['last_learned']['code'] = ''
             _LOGGER.info("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):
@@ -279,7 +290,7 @@ class R9Remote(RemoteDevice):
             _LOGGER.info("%s found in commands", command)
             return self._commands[command][CONF_COMMAND]
         elif command.startswith('@'):
-             return [command[1:]]
+            return [command[1:]]
         else:
             mo = re.search("^ch([0-9]+)$", command)
             if mo is not None and 'ch1' in self._commands:
