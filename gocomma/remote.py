@@ -33,6 +33,7 @@ CONF_KEY = "key"
 STATE_LEARNING = "learning"
 STATE_LEARNING_INIT = "learning_init"
 STATE_LEARNING_OK = "learning_ok"
+STATE_LEARNING_KEY = "learning_key"
 
 DEFAULT_TIMEOUT = 3
 
@@ -186,6 +187,11 @@ class R9Remote(RemoteDevice):
         return self._device
 
     @property
+    def state(self):
+        """Return the state."""
+        return self._state
+
+    @property
     def is_on(self):
         """Return False if device is unreachable, else True."""
         return self._state != STATE_OFF
@@ -201,7 +207,6 @@ class R9Remote(RemoteDevice):
         rv = await self._device.enter_learning_mode(timeout = timeout, retry = retry)
         if rv:
             self._state = STATE_LEARNING_OK
-            await self.async_update_ha_state()
         return rv
     
     async def exit_learning_mode(self,timeout = -1,retry=3):
@@ -212,14 +217,16 @@ class R9Remote(RemoteDevice):
         return rv
     
     async def get_learned_key(self,timeout = 30,keyname = 'NA'):
+        self._state = STATE_LEARNING_KEY
         self._states['key_to_learn'] = keyname
         await self.async_update_ha_state()
         rv = await self._device.get_learned_key(timeout = timeout)
         if rv:
-            self._states['key_to_learn'] = ''
             self._states['last_learned']['name'] = keyname
             self._states['last_learned']['code'] = binascii.hexlify(rv).decode('utf8')
-            await self.async_update_ha_state()
+        self._state = STATE_LEARNING_OK
+        self._states['key_to_learn'] = ''
+        await self.async_update_ha_state()
         return rv
     
     @property
