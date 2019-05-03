@@ -82,7 +82,7 @@ async def async_setup_platform(hass, config, async_add_entities,
     #cmnds = fill_commands(config.get(CONF_COMMANDS)
     cmnds = config.get(CONF_COMMANDS)
 
-    xiaomi_miio_remote = BroadlinkRemote(friendly_name, device, mac_addr, cmnds)
+    xiaomi_miio_remote = BroadlinkRemote(friendly_name, device, binascii.hexlify(mac_addr).decode('utf8'), cmnds)
 
     hass.data[DATA_KEY][friendly_name] = xiaomi_miio_remote
 
