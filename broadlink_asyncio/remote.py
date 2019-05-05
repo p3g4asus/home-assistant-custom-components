@@ -31,7 +31,8 @@ STATE_LEARNING_KEY = "learning_key"
 SERVICE_LEARN = 'broadlink_asyncio_learn'
 DATA_KEY = 'remote.broadlink_asyncio'
 
-CONF_COMMANDS = 'commands'
+CONF_REMOTES = 'remotes'
+CONF_KEYS = 'keys'
 CONF_NUMBER_OK_KEYS = "keyn"
 
 DEFAULT_TIMEOUT = 5
@@ -40,21 +41,21 @@ LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
     vol.Optional(CONF_TIMEOUT, default=30): vol.All(int, vol.Range(min=10)),
     vol.Optional(CONF_NUMBER_OK_KEYS,default=1): vol.All(int, vol.Range(min=1)),
-    vol.Optional(CONF_COMMANDS,default=[]): vol.All(cv.ensure_list, [cv.slug])
+    vol.Optional(CONF_KEYS,default=[]): vol.All(cv.ensure_list, [cv.slug])
 })
 
-COMMAND_SCHEMA = vol.Schema({
-    vol.Required(CONF_COMMAND): vol.All(cv.ensure_list, [cv.string])
-})
+COMMAND_SCHEMA = vol.All(cv.ensure_list, [cv.string])
+
+KEYS_SCHEMA = cv.schema_with_slug_keys(COMMAND_SCHEMA)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Optional(CONF_NAME): cv.string,
+    vol.Required(CONF_NAME): cv.slug,
     vol.Required(CONF_HOST): cv.string,
     vol.Required(CONF_MAC): cv.string,
     vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT):
         vol.All(int, vol.Range(min=0)),
-    vol.Optional(CONF_COMMANDS, default={}):
-        cv.schema_with_slug_keys(COMMAND_SCHEMA),
+    vol.Optional(CONF_REMOTES, default={}):
+        cv.schema_with_slug_keys(KEYS_SCHEMA),
 }, extra=vol.ALLOW_EXTRA)
 
 
@@ -76,19 +77,25 @@ async def async_setup_platform(hass, config, async_add_entities,
     if DATA_KEY not in hass.data:
         hass.data[DATA_KEY] = {}
 
-    friendly_name = config.get(CONF_NAME, "broadlink_asyncio_" +
-                               ip_addr.replace('.', '_'))
+    friendly_name = config.get(CONF_NAME)
     timeout = config.get(CONF_TIMEOUT)
     device = BroadlinkRM3((ip_addr, PORT), mac_addr, timeout=timeout)
 
     #cmnds = fill_commands(config.get(CONF_COMMANDS)
-    cmnds = config.get(CONF_COMMANDS)
-
-    xiaomi_miio_remote = BroadlinkRemote(friendly_name, device, cmnds)
-
+    remotes = config.get(CONF_REMOTES)
+    allcmnds = dict()
+    for remnm,remkeys in remotes.items():
+        for keynm,keycmnds in remkeys.items():
+            allcmnds[remnm+"_"+keynm] = keycmnds
+    xiaomi_miio_remote = BroadlinkRemote(friendly_name, device, allcmnds, '')
     hass.data[DATA_KEY][friendly_name] = xiaomi_miio_remote
+    lstent = [xiaomi_miio_remote]
+    for remnm,remkeys in remotes.items():
+        xiaomi_miio_remote = BroadlinkRemote(friendly_name+"_"+remnm, device, remkeys, friendly_name)
+        lstent.append(xiaomi_miio_remote)
 
-    async_add_entities([xiaomi_miio_remote])
+
+    async_add_entities(lstent)
 
     async def async_service_handler(service):
         """Handle a learn command."""
@@ -110,7 +117,7 @@ async def async_setup_platform(hass, config, async_add_entities,
         
         timeout = service.data.get(CONF_TIMEOUT, 30)
         numkeys = service.data.get(CONF_NUMBER_OK_KEYS,1)
-        keynames = service.data.get(CONF_COMMANDS,[])
+        keynames = service.data.get(CONF_KEYS,[])
         pn = hass.components.persistent_notification
         allnot = ''
         msg = ''
@@ -152,13 +159,14 @@ async def async_setup_platform(hass, config, async_add_entities,
 class BroadlinkRemote(RemoteDevice):
     """Representation of a Xiaomi Miio Remote device."""
 
-    def __init__(self, friendly_name, device, commands):
+    def __init__(self, friendly_name, device, commands, main_entity):
         """Initialize the remote."""
         self._name = friendly_name
         self._device = device
         self._state = STATE_OFF
         self._commands = commands
         self._states = dict(last_learned=dict(name='',code=''),key_to_learn='')
+        self._main = main_entity
 
     @property
     def name(self):
@@ -219,15 +227,20 @@ class BroadlinkRemote(RemoteDevice):
     
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
-        if not self._state.startswith(STATE_LEARNING):
-            if await self._device.auth():
-                if self._state==STATE_OFF:
-                    self._state = STATE_ON
-            else:
-                self._state = STATE_OFF
-                self._states['last_learned']['name'] = ''
-                self._states['last_learned']['code'] = ''
-            _LOGGER.debug("New state is %s",self._state)
+        if len(self._main):
+            sto = self.hass.states.get("remote."+self._main)
+            self._state = sto.state
+            self._states = sto.attributes
+        else:
+            if not self._state.startswith(STATE_LEARNING):
+                if await self._device.auth():
+                    if self._state==STATE_OFF:
+                        self._state = STATE_ON
+                else:
+                    self._state = STATE_OFF
+                    self._states['last_learned']['name'] = ''
+                    self._states['last_learned']['code'] = ''
+                _LOGGER.debug("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):
         """Turn the device on."""
