@@ -61,7 +61,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 async def async_setup_platform(hass, config, async_add_entities,
                                discovery_info=None):
     """Set up the Xiaomi IR Remote (Chuangmi IR) platform."""
-    from pybroadlink.broadlink_udp import (BroadlinkUDP,PORT)
+    from pybroadlink.broadlink_udp import (BroadlinkRM3,PORT)
     ip_addr = config.get(CONF_HOST)
     mac_addr = binascii.unhexlify(
         config.get(CONF_MAC).encode().replace(b':', b''))
@@ -79,7 +79,7 @@ async def async_setup_platform(hass, config, async_add_entities,
     friendly_name = config.get(CONF_NAME, "broadlink_asyncio_" +
                                ip_addr.replace('.', '_'))
     timeout = config.get(CONF_TIMEOUT)
-    device = BroadlinkUDP((ip_addr, PORT), mac_addr, timeout=timeout)
+    device = BroadlinkRM3((ip_addr, PORT), mac_addr, timeout=timeout)
 
     #cmnds = fill_commands(config.get(CONF_COMMANDS)
     cmnds = config.get(CONF_COMMANDS)
