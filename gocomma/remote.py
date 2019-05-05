@@ -111,7 +111,7 @@ async def async_setup_platform(hass, config, async_add_entities,
 
         device = entity._device
 
-        msg = "";
+        msg = ''
         auth = False
         pn = hass.components.persistent_notification
         lastcmddict = await device.ask_last()
@@ -159,7 +159,7 @@ async def async_setup_platform(hass, config, async_add_entities,
             msg = "Device is not answering to ping request"
         if len(msg):
             _LOGGER.error(msg)
-            pn.async_create(msg, title='Gocomma R9',notification_id='gocomma.remote.learning')
+            pn.async_create(msg, title='Gocomma R9',notification_id='gocomma_remote_learning')
 
     hass.services.async_register(DOMAIN, SERVICE_LEARN, async_service_handler,
                                  schema=LEARN_COMMAND_SCHEMA)
@@ -244,7 +244,7 @@ class R9Remote(RemoteDevice):
                 self._state = STATE_OFF
                 self._states['last_learned']['name'] = ''
                 self._states['last_learned']['code'] = ''
-            _LOGGER.info("New state is %s",self._state)
+            _LOGGER.debug("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):
         """Turn the device on."""
@@ -288,7 +288,7 @@ class R9Remote(RemoteDevice):
             num = 1
         for _ in range(num):
             _LOGGER.info("I am sending %s, Final len is %d",add,len(payload))
-            await self._device.send_ir(payload,retry=totretry)
+            await self._device.emit_ir(payload,retry=totretry)
         return False
                         
     def command2payloads(self,command):
