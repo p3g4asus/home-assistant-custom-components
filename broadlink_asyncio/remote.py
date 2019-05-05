@@ -106,14 +106,11 @@ async def async_setup_platform(hass, config, async_add_entities,
         entity_id = service.data.get(ATTR_ENTITY_ID)
         if entity_id.startswith("remote."):
             entity_id = entity_id[len("remote."):]
-        entity = None
-        for remote in hass.data[DATA_KEY].values():
-            if remote.name == entity_id:
-                entity = remote
 
-        if not entity:
+        if entity_id not in hass.data[DATA_KEY]:
             _LOGGER.error("entity_id: '%s' not found", entity_id)
             return
+		entity = hass.data[DATA_KEY][entity_id]
         
         timeout = service.data.get(CONF_TIMEOUT, 30)
         numkeys = service.data.get(CONF_NUMBER_OK_KEYS,1)
@@ -124,7 +121,7 @@ async def async_setup_platform(hass, config, async_add_entities,
 
         for xx in range(numkeys):
             try:
-                if entity.enter_learning_mode():
+                if await entity.enter_learning_mode():
                     keyname = keynames[xx] if xx<len(keynames) else 'NA_%d' % (xx+1)
                     msg = "Press the key you want Home Assistant to learn [%s] %d/%d" %(keyname,xx+1,numkeys)
                     _LOGGER.info(msg)
@@ -179,6 +176,11 @@ class BroadlinkRemote(RemoteDevice):
         return self._device
 
     @property
+    def state(self):
+        """Return the state."""
+        return self._state
+
+    @property
     def is_on(self):
         """Return False if device is unreachable, else True."""
         return self._state != STATE_OFF
@@ -188,11 +190,6 @@ class BroadlinkRemote(RemoteDevice):
         """We should not be polled for device up state."""
         return True
     
-    @property
-    def state(self):
-        """Return the state."""
-        return self._state
-    
     async def enter_learning_mode(self,timeout = -1,retry=3):
         self._state = STATE_LEARNING_INIT
         await self.async_update_ha_state()
@@ -201,6 +198,11 @@ class BroadlinkRemote(RemoteDevice):
             self._state = STATE_LEARNING_OK
         return rv
     
+    async def exit_learning_mode(self,timeout = -1,retry=3):
+        self._state = STATE_ON
+        await self.async_update_ha_state()
+        return True
+
     async def get_learned_key(self,timeout = 30,keyname = 'NA'):
         self._state = STATE_LEARNING_KEY
         self._states['key_to_learn'] = keyname
@@ -214,11 +216,6 @@ class BroadlinkRemote(RemoteDevice):
         self._states['key_to_learn'] = ''
         await self.async_update_ha_state()
         return rv
-    
-    async def exit_learning_mode(self,timeout = -1,retry=3):
-        self._state = STATE_ON
-        await self.async_update_ha_state()
-        return True
     
     @property
     def device_state_attributes(self):

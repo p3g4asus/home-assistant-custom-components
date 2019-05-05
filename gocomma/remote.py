@@ -13,7 +13,7 @@ from homeassistant.components.remote import (
     DEFAULT_DELAY_SECS, RemoteDevice, ATTR_HOLD_SECS, DEFAULT_HOLD_SECS)
 from homeassistant.const import (
     CONF_NAME, CONF_HOST, CONF_TIMEOUT,
-    ATTR_ENTITY_ID, CONF_COMMAND, CONF_ID, STATE_OFF, STATE_ON)
+    ATTR_ENTITY_ID, CONF_ID, STATE_OFF, STATE_ON)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 
@@ -23,40 +23,40 @@ REQUIREMENTS = ['pygocomma>=1.0']
 
 _LOGGER = logging.getLogger(__name__)
 
-SERVICE_LEARN = 'gocomma_remote_learn'
-DATA_KEY = 'remote.gocomma'
-
-CONF_COMMANDS = 'commands'
-CONF_NUMBER_OK_KEYS = "keyn"
-CONF_KEY = "key"
-
 STATE_LEARNING = "learning"
 STATE_LEARNING_INIT = "learning_init"
 STATE_LEARNING_OK = "learning_ok"
 STATE_LEARNING_KEY = "learning_key"
 
+SERVICE_LEARN = 'gocomma_remote_learn'
+DATA_KEY = 'remote.gocomma'
+
+CONF_REMOTES = 'remotes'
+CONF_KEYS = 'keys'
+CONF_NUMBER_OK_KEYS = "keyn"
+CONF_KEY = "key"
 DEFAULT_TIMEOUT = 3
 
 LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
     vol.Optional(CONF_TIMEOUT, default=30): vol.All(int, vol.Range(min=10)),
     vol.Optional(CONF_NUMBER_OK_KEYS,default=1): vol.All(int, vol.Range(min=1)),
-    vol.Optional(CONF_COMMANDS,default=[]): vol.All(cv.ensure_list, [cv.slug])
+    vol.Optional(CONF_KEYS,default=[]): vol.All(cv.ensure_list, [cv.slug])
 })
 
-COMMAND_SCHEMA = vol.Schema({
-    vol.Required(CONF_COMMAND): vol.All(cv.ensure_list, [cv.string])
-})
+COMMAND_SCHEMA = vol.All(cv.ensure_list, [cv.string])
+
+KEYS_SCHEMA = cv.schema_with_slug_keys(COMMAND_SCHEMA)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_NAME): cv.string,
+    vol.Required(CONF_NAME): cv.slug,
     vol.Required(CONF_HOST): cv.string,
     vol.Required(CONF_ID): cv.string,
     vol.Required(CONF_KEY): cv.string,
     vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT):
         vol.All(int, vol.Range(min=0)),
-    vol.Optional(CONF_COMMANDS, default={}):
-        cv.schema_with_slug_keys(COMMAND_SCHEMA),
+    vol.Optional(CONF_REMOTES, default={}):
+        cv.schema_with_slug_keys(KEYS_SCHEMA),
 }, extra=vol.ALLOW_EXTRA)
 
 
@@ -83,13 +83,21 @@ async def async_setup_platform(hass, config, async_add_entities,
     device = R9((ip_addr, DEFAULT_PORT),idv,key,timeout)
 
     #cmnds = fill_commands(config.get(CONF_COMMANDS)
-    cmnds = config.get(CONF_COMMANDS)
-
-    xiaomi_miio_remote = R9Remote(friendly_name, device, cmnds)
+    remotes = config.get(CONF_REMOTES)
+    allcmnds = dict()
+    for remnm,remkeys in remotes.items():
+        for keynm,keycmnds in remkeys.items():
+            allcmnds[remnm+"@"+keynm] = keycmnds
+    xiaomi_miio_remote = R9Remote(friendly_name, device, allcmnds, '')
 
     hass.data[DATA_KEY][friendly_name] = xiaomi_miio_remote
+    lstent = [xiaomi_miio_remote]
+    for remnm,remkeys in remotes.items():
+        xiaomi_miio_remote = R9Remote(friendly_name+"_"+remnm, device, remkeys, friendly_name)
+        lstent.append(xiaomi_miio_remote)
 
-    async_add_entities([xiaomi_miio_remote])
+
+    async_add_entities(lstent)
 
     async def async_service_handler(service):
         """Handle a learn command."""
@@ -100,14 +108,11 @@ async def async_setup_platform(hass, config, async_add_entities,
         entity_id = service.data.get(ATTR_ENTITY_ID)
         if entity_id.startswith("remote."):
             entity_id = entity_id[len("remote."):]
-        entity = None
-        for remote in hass.data[DATA_KEY].values():
-            if remote.name == entity_id:
-                entity = remote
 
-        if not entity:
+        if entity_id not in hass.data[DATA_KEY]:
             _LOGGER.error("entity_id: '%s' not found", entity_id)
             return
+		entity = hass.data[DATA_KEY][entity_id]
 
         device = entity._device
 
@@ -124,7 +129,7 @@ async def async_setup_platform(hass, config, async_add_entities,
             if auth:
                 allnot = ''
                 numkeys = service.data.get(CONF_NUMBER_OK_KEYS,1)
-                keynames = service.data.get(CONF_COMMANDS,[])
+                keynames = service.data.get(CONF_KEYS,[])
                 for xx in range(numkeys):
                     try:
                         keyname = keynames[xx] if xx<len(keynames) else 'NA_%d' % (xx+1)
@@ -149,7 +154,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                 msg = "Learning ends NOW"
                 _LOGGER.info(msg)
             else:
-                msg = "Failed entering learning mode"                    
+                msg = "Failed entering learning mode"
             auth = await entity.exit_learning_mode()
             if not auth:
                 msg = "Failed exiting learning mode"
@@ -168,13 +173,14 @@ async def async_setup_platform(hass, config, async_add_entities,
 class R9Remote(RemoteDevice):
     """Representation of a Xiaomi Miio Remote device."""
 
-    def __init__(self, friendly_name, device, commands):
+    def __init__(self, friendly_name, device, commands, main_entity):
         """Initialize the remote."""
         self._name = friendly_name
         self._device = device
         self._state = STATE_OFF
         self._commands = commands
         self._states = dict(last_learned=dict(name='',code=''),key_to_learn='')
+        self._main = main_entity
 
     @property
     def name(self):
@@ -215,7 +221,7 @@ class R9Remote(RemoteDevice):
             self._state = STATE_ON
             await self.async_update_ha_state()
         return rv
-    
+
     async def get_learned_key(self,timeout = 30,keyname = 'NA'):
         self._state = STATE_LEARNING_KEY
         self._states['key_to_learn'] = keyname
@@ -236,15 +242,20 @@ class R9Remote(RemoteDevice):
     
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
-        if not self._state.startswith(STATE_LEARNING):
-            if await self._device.ask_last():
-                if self._state==STATE_OFF:
-                    self._state = STATE_ON
-            else:
-                self._state = STATE_OFF
-                self._states['last_learned']['name'] = ''
-                self._states['last_learned']['code'] = ''
-            _LOGGER.debug("New state is %s",self._state)
+        if len(self._main):
+            sto = self.hass.states.get("remote."+self._main)
+            self._state = sto.state
+            self._states = sto.attributes
+        else:
+            if not self._state.startswith(STATE_LEARNING):
+                if await self._device.ask_last():
+                    if self._state==STATE_OFF:
+                        self._state = STATE_ON
+                else:
+                    self._state = STATE_OFF
+                    self._states['last_learned']['name'] = ''
+                    self._states['last_learned']['code'] = ''
+                _LOGGER.debug("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):
         """Turn the device on."""
@@ -295,13 +306,14 @@ class R9Remote(RemoteDevice):
         _LOGGER.info("Searching for %s", command)
         if command in self._commands:
             _LOGGER.info("%s found in commands", command)
-            return self._commands[command][CONF_COMMAND]
+            return self._commands[command]
         elif command.startswith('@'):
             return [command[1:]]
         else:
-            mo = re.search("^ch([0-9]+)$", command)
-            if mo is not None and 'ch1' in self._commands:
-                commands = [self._commands["ch"+x][CONF_COMMAND][0] for x in command]
+            mo = re.search("^(([a-zA-Z0-9_]*)@)?([0-9]+)$", command)
+            pre = '' if not mo or not mo[1] else mo[1]
+            if mo is not None and pre+'ch1' in self._commands:
+                    commands = [self._commands[pre+'ch'+x][0] for x in mo[3]]
             else:
                 mo = re.search("^([a-zA-Z0-9_]+)#([0-9]+)$",command)
                 if mo is not None:
@@ -310,7 +322,7 @@ class R9Remote(RemoteDevice):
                     _LOGGER.info("%s rep %d. Searching...", nm,num)
                     if nm in self._commands:
                         _LOGGER.info("%s found in commands", nm)
-                        cmdl = self._commands[nm][CONF_COMMAND]
+                        cmdl = self._commands[nm]
                         return list(zip(cmdl,[num for _ in range(len(cmdl))]))
                     else:
                         return []
