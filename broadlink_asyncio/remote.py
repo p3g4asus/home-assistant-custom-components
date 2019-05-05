@@ -124,7 +124,6 @@ async def async_setup_platform(hass, config, async_add_entities,
                     pn.async_create(msg, title='Broadlink RM',notification_id='broadlink_asyncio_learning')
                     packet = await entity.get_learned_key(timeout,keyname)
                     if packet:
-                        packet = packet[0]
                         b64k = b64encode(packet).decode('utf8')
                         notif = '{}:\n    command:\n        - r{}\n'.format(keyname,b64k)
                         msg = "Received is: r{} or h{}".\
@@ -200,6 +199,7 @@ class BroadlinkRemote(RemoteDevice):
         await self.async_update_ha_state()
         rv = await self._device.get_learned_key(timeout = timeout)
         if rv:
+            rv = rv[0]
             self._states['last_learned']['name'] = keyname
             self._states['last_learned']['code'] = binascii.hexlify(rv).decode('utf8')
         self._state = STATE_LEARNING_OK
