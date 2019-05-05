@@ -412,7 +412,7 @@ class SamsungCTLRemote(RemoteDevice):
                     self._state = "on"
         except:
             pass
-        _LOGGER.info("New state is %s",self._state)
+        _LOGGER.debug("New state is %s",self._state)
 
     async def _send_command(self, packet, totretry):
         if isinstance(packet, float):

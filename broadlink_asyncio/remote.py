@@ -158,6 +158,7 @@ class BroadlinkRemote(RemoteDevice):
         self._device = device
         self._state = STATE_OFF
         self._commands = commands
+        self._states = dict(last_learned=dict(name='',code=''),key_to_learn='')
 
     @property
     def name(self):
