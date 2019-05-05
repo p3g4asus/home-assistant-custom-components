@@ -110,7 +110,7 @@ async def async_setup_platform(hass, config, async_add_entities,
         if entity_id not in hass.data[DATA_KEY]:
             _LOGGER.error("entity_id: '%s' not found", entity_id)
             return
-		entity = hass.data[DATA_KEY][entity_id]
+        entity = hass.data[DATA_KEY][entity_id]
         
         timeout = service.data.get(CONF_TIMEOUT, 30)
         numkeys = service.data.get(CONF_NUMBER_OK_KEYS,1)
