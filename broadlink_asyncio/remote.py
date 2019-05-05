@@ -293,13 +293,13 @@ class BroadlinkRemote(RemoteDevice):
         _LOGGER.info("Searching for %s", command)
         if command in self._commands:
             _LOGGER.info("%s found in commands", command)
-            return self._commands[command][CONF_COMMAND]
+            return self._commands[command]
         elif command.startswith('@'):
             return [command[1:]]
         else:
             mo = re.search("^ch([0-9]+)$", command)
             if mo is not None and 'ch1' in self._commands:
-                commands = [self._commands["ch"+x][CONF_COMMAND][0] for x in command]
+                commands = [self._commands["ch"+x][0] for x in command]
             else:
                 mo = re.search("^([a-zA-Z0-9_]+)#([0-9]+)$",command)
                 if mo is not None:
@@ -308,7 +308,7 @@ class BroadlinkRemote(RemoteDevice):
                     _LOGGER.info("%s rep %d. Searching...", nm,num)
                     if nm in self._commands:
                         _LOGGER.info("%s found in commands", nm)
-                        cmdl = self._commands[nm][CONF_COMMAND]
+                        cmdl = self._commands[nm]
                         return list(zip(cmdl,[num for _ in range(len(cmdl))]))
                     else:
                         return []
