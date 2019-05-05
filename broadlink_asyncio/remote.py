@@ -124,6 +124,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                     pn.async_create(msg, title='Broadlink RM',notification_id='broadlink_asyncio_learning')
                     packet = await entity.get_learned_key(timeout,keyname)
                     if packet:
+                        packet = packet[0]
                         b64k = b64encode(packet).decode('utf8')
                         notif = '{}:\n    command:\n        - r{}\n'.format(keyname,b64k)
                         msg = "Received is: r{} or h{}".\
