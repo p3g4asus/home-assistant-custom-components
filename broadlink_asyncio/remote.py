@@ -13,7 +13,7 @@ from homeassistant.components.remote import (
     DEFAULT_DELAY_SECS, RemoteDevice, ATTR_HOLD_SECS, DEFAULT_HOLD_SECS)
 from homeassistant.const import (
     CONF_NAME, CONF_HOST, CONF_MAC, CONF_TIMEOUT,
-    ATTR_ENTITY_ID, CONF_COMMAND, STATE_OFF, STATE_ON)
+    ATTR_ENTITY_ID, STATE_OFF, STATE_ON)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 
@@ -86,7 +86,7 @@ async def async_setup_platform(hass, config, async_add_entities,
     allcmnds = dict()
     for remnm,remkeys in remotes.items():
         for keynm,keycmnds in remkeys.items():
-            allcmnds[remnm+"_"+keynm] = keycmnds
+            allcmnds[remnm+"@"+keynm] = keycmnds
     xiaomi_miio_remote = BroadlinkRemote(friendly_name, device, allcmnds, '')
     hass.data[DATA_KEY][friendly_name] = xiaomi_miio_remote
     lstent = [xiaomi_miio_remote]
@@ -297,9 +297,10 @@ class BroadlinkRemote(RemoteDevice):
         elif command.startswith('@'):
             return [command[1:]]
         else:
-            mo = re.search("^ch([0-9]+)$", command)
-            if mo is not None and 'ch1' in self._commands:
-                commands = [self._commands["ch"+x][0] for x in command]
+            mo = re.search("^(([a-zA-Z0-9_]*)@)?([0-9]+)$", command)
+            pre = '' if not mo or not mo[1] else mo[1]
+            if mo is not None and pre+'ch1' in self._commands:
+                    commands = [self._commands[pre+'ch'+x][0] for x in mo[3]]
             else:
                 mo = re.search("^([a-zA-Z0-9_]+)#([0-9]+)$",command)
                 if mo is not None:
