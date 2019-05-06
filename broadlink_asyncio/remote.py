@@ -209,7 +209,6 @@ class BroadlinkRemote(RemoteDevice):
         await self.async_update_ha_state()
         rv = await self._device.get_learned_key(timeout = timeout)
         if rv:
-            rv = rv[0]
             self._states['last_learned']['name'] = keyname
             self._states['last_learned']['code'] = binascii.hexlify(rv).decode('utf8')
         self._state = STATE_LEARNING_OK
