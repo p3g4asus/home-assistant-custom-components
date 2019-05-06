@@ -53,7 +53,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
     vol.Required(CONF_MAC): cv.string,
     vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT):
-        vol.All(int, vol.Range(min=0)),
+        vol.All(int, vol.Range(min=1)),
     vol.Optional(CONF_REMOTES, default={}):
         cv.schema_with_slug_keys(KEYS_SCHEMA),
 }, extra=vol.ALLOW_EXTRA)

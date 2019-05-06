@@ -13,33 +13,37 @@ from homeassistant.components.remote import (
     DEFAULT_DELAY_SECS, RemoteDevice, ATTR_HOLD_SECS, DEFAULT_HOLD_SECS)
 from homeassistant.const import (
     CONF_NAME, CONF_HOST, CONF_MAC, CONF_TIMEOUT,
-    ATTR_ENTITY_ID, CONF_COMMAND, CONF_DISCOVERY, STATE_OFF,STATE_ON)
+    ATTR_ENTITY_ID, CONF_DISCOVERY, STATE_OFF,STATE_ON)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
-import traceback
 from .const import CONF_BROADCAST_ADDRESS
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=30)
 
-REQUIREMENTS = ['asyncio-orvibo>=1.2']
+REQUIREMENTS = ['asyncio-orvibo>=1.18']
 
 _LOGGER = logging.getLogger(__name__)
+
+STATE_LEARNING = "learning"
+STATE_LEARNING_INIT = "learning_init"
+STATE_LEARNING_OK = "learning_ok"
+STATE_LEARNING_KEY = "learning_key"
 
 SERVICE_LEARN = 'orvibo_asyncio_remote_learn'
 SERVICE_DISCOVERY = 'orvibo_asyncio_remote_discovery'
 DATA_KEY = 'remote.orvibo_asyncio'
 
-CONF_COMMANDS = 'commands'
 CONF_REMOTES = 'remotes'
+CONF_KEYS = 'keys'
 CONF_NUMBER_OK_KEYS = "keyn"
 
-DEFAULT_LEARN_TIMEOUT = 30
-DEFAULT_TIMEOUT = 3
+DEFAULT_TIMEOUT = 5
 
 LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
-    vol.Optional(CONF_TIMEOUT, default=DEFAULT_LEARN_TIMEOUT): vol.All(int, vol.Range(min=10)),
+    vol.Optional(CONF_TIMEOUT, default=30): vol.All(int, vol.Range(min=10)),
     vol.Optional(CONF_NUMBER_OK_KEYS,default=1): vol.All(int, vol.Range(min=1)),
+    vol.Optional(CONF_KEYS,default=[]): vol.All(cv.ensure_list, [cv.slug])
 })
 
 DISCOVERY_COMMAND_SCHEMA = vol.Schema({
@@ -47,23 +51,23 @@ DISCOVERY_COMMAND_SCHEMA = vol.Schema({
     vol.Optional(CONF_BROADCAST_ADDRESS, default='255.255.255.255'): cv.string,
 })
 
-COMMAND_SCHEMA = vol.Schema({
-    vol.Required(CONF_COMMAND): vol.All(cv.ensure_list, [cv.string])
-})
+COMMAND_SCHEMA = vol.All(cv.ensure_list, [cv.string])
 
-REMOTE_SCHEMA = vol.Schema({
-    vol.Required(CONF_NAME): cv.string,
+KEYS_SCHEMA = cv.schema_with_slug_keys(COMMAND_SCHEMA)
+
+ALLONE_SCHEMA = vol.Schema({
+    vol.Required(CONF_NAME): cv.slug,
     vol.Required(CONF_HOST): cv.string,
     vol.Required(CONF_MAC): cv.string,
     vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT):
         vol.All(int, vol.Range(min=1)),
-    vol.Optional(CONF_COMMANDS, default={}):
-        cv.schema_with_slug_keys(COMMAND_SCHEMA),
+    vol.Optional(CONF_REMOTES, default={}):
+        cv.schema_with_slug_keys(KEYS_SCHEMA),
 }, extra=vol.ALLOW_EXTRA)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
    vol.Required(CONF_REMOTES, default=[]):
-    vol.All(cv.ensure_list, [REMOTE_SCHEMA]),
+    vol.All(cv.ensure_list, [ALLONE_SCHEMA]),
     vol.Optional(CONF_DISCOVERY, default=False): cv.boolean,
 })
 
@@ -74,38 +78,55 @@ async def async_setup_platform(hass, config, async_add_entities,
     from asyncio_orvibo.allone import AllOne
     from asyncio_orvibo.orvibo_udp import PORT
 
-    remote_data = {}
-    remotes = []
+    allone_data = {}
+    allones = []
     remote_conf = config.get(CONF_REMOTES, [config])
     for remote in remote_conf:
-        remote_data[remote.get(CONF_HOST)] = remote
+        allone_data[remote.get(CONF_HOST)] = remote
     if config.get(CONF_DISCOVERY):
         _LOGGER.info("Discovering AllOne remotes ...")
         disc = await AllOne.discovery()
         for _,v in disc.items():
-            if v.hp[0] not in remote_data:
+            if v.hp[0] not in allone_data:
                 mac =  AllOne.print_mac(v.mac)
-                remote_data[v.hp[0]] = {\
+                allone_data[v.hp[0]] = {\
                     CONF_NAME: "s_"+mac,\
                     CONF_MAC: mac,\
                     CONF_HOST: v.hp[0],\
                     "obj": v,
                     CONF_TIMEOUT: DEFAULT_TIMEOUT,
-                    CONF_COMMANDS: []}
+                    CONF_REMOTES: {}}
                 _LOGGER.info("Discovered new device %s",v)
             else:
-                remote_data[v.hp[0]]["obj"] = v
+                allone_data[v.hp[0]]["obj"] = v
                 _LOGGER.info("Re-Discovered new device %s",v)
-    
-    for _,data in remote_data.items():
+    hassdata = {}
+    for _,data in allone_data.items():
+        friendly_name = data.get(CONF_NAME)
+        host = data.get(CONF_HOST)
         if "obj" not in data:
-            data["obj"] = AllOne((data.get(CONF_HOST),PORT), mac=data.get(CONF_MAC),timeout=data.get(CONF_TIMEOUT))
-        remotes.append(AllOneRemote(data.get(CONF_NAME),data.get(CONF_COMMANDS),\
-                      data["obj"]))
-    hass.data[DATA_KEY] = remote_data
+            data["obj"] = AllOne((host,PORT), mac=data.get(CONF_MAC),timeout=data.get(CONF_TIMEOUT))
+            remotes = data.get(CONF_REMOTES)
+            allcmnds = dict()
+            for remnm,remkeys in remotes.items():
+                for keynm,keycmnds in remkeys.items():
+                    allcmnds[remnm+"@"+keynm] = keycmnds
+            xiaomi_miio_remote = AllOneRemote(friendly_name, data["obj"], allcmnds, '')
+            hassdata[friendly_name] = xiaomi_miio_remote
+            hassdata[host] = xiaomi_miio_remote
+            allones.append(xiaomi_miio_remote)
+            for remnm,remkeys in remotes.items():
+                xiaomi_miio_remote = AllOneRemote(friendly_name+"_"+remnm, data["obj"], remkeys, friendly_name)
+                allones.append(xiaomi_miio_remote)
+        else:
+            xiaomi_miio_remote = AllOneRemote(friendly_name, data["obj"],data.get(CONF_REMOTES), '')
+            hassdata[friendly_name] = xiaomi_miio_remote
+            hassdata[host] = xiaomi_miio_remote
+            allones.append(xiaomi_miio_remote)
+    hass.data[DATA_KEY] = hassdata
     
     
-    async_add_entities(remotes)
+    async_add_entities(allones)
 
     async def async_service_handler(service):
         """Handle a learn command."""
@@ -113,59 +134,70 @@ async def async_setup_platform(hass, config, async_add_entities,
             entity_id = service.data.get(ATTR_ENTITY_ID)
             if entity_id.startswith("remote."):
                 entity_id = entity_id[len("remote."):]
-            entity = None
-            for remote in hass.data[DATA_KEY].values():
-                if remote[CONF_NAME] == entity_id:
-                    entity = remote
-    
-            if not entity:
+            if entity_id not in hass.data[DATA_KEY]:
                 _LOGGER.error("entity_id: '%s' not found", entity_id)
                 return
-    
-            device = entity["obj"]
-            msg = "";
-            for _ in range(service.data.get(CONF_NUMBER_OK_KEYS,1)):
-                if await device.learn_ir_init():
-                    msg = "Press the key you want Home Assistant to learn"
-                    _LOGGER.info(msg)
-                    hass.components.persistent_notification.async_create(msg, title='AllOne remote')
-                    timeout = service.data.get(CONF_TIMEOUT, DEFAULT_LEARN_TIMEOUT)
-                    v = await device.learn_ir_get(timeout)
-                    if not v:
-                        msg = "Did not receive any key"
+            entity = hass.data[DATA_KEY][entity_id]
+        
+            timeout = service.data.get(CONF_TIMEOUT, 30)
+            numkeys = service.data.get(CONF_NUMBER_OK_KEYS,1)
+            keynames = service.data.get(CONF_KEYS,[])
+            pn = hass.components.persistent_notification
+            allnot = ''
+            msg = ''
+
+            for xx in range(numkeys):
+                try:
+                    if await entity.enter_learning_mode():
+                        keyname = keynames[xx] if xx<len(keynames) else 'NA_%d' % (xx+1)
+                        msg = "Press the key you want Home Assistant to learn [%s] %d/%d" %(keyname,xx+1,numkeys)
+                        _LOGGER.info(msg)
+                        pn.async_create(msg, title='Broadlink RM',notification_id='broadlink_asyncio_learning')
+                        packet = await entity.get_learned_key(timeout,keyname)
+                        if packet:
+                            b64k = b64encode(packet).decode('utf8')
+                            notif = '{}:\n    command:\n        - r{}\n'.format(keyname,b64k)
+                            msg = "Received is: r{} or h{}".\
+                                      format(b64k,binascii.hexlify(packet).decode('utf8'))
+                        else:
+                            notif = ''
+                            msg = "Did not receive any key"
+                        _LOGGER.info(msg)
+                        allnot+=notif+'\n'
+                        pn.async_create(allnot, title='Broadlink RM',notification_id='broadlink_asyncio_learned')
+                        pn.async_dismiss(notification_id='broadlink_asyncio_learning')
                     else:
-                        msg = "Received packet is: r{} or h{}".\
-                                  format(b64encode(v).decode('utf8'),binascii.hexlify(v).decode('utf8'))
-                else:
-                    msg = "Cannot enter learning mode"
-                _LOGGER.info(msg)
-                hass.components.persistent_notification.async_create(msg, title='AllOne remote')
+                        msg = "Failed entering learning mode"
+                        _LOGGER.error(msg)
+                        pn.async_create(msg, title='Broadlink RM',notification_id='broadlink_asyncio_learning')
+                except BaseException as ex:
+                    _LOGGER.error("Learning error %s",ex)
+            msg = "Learning ends NOW"
+            _LOGGER.info(msg)
+            await entity.exit_learning_mode()
+
         elif service.service == SERVICE_DISCOVERY:
-            remote_data = hass.data[DATA_KEY]
+            hassdata = hass.data[DATA_KEY]
             timeout = service.data.get(CONF_TIMEOUT,5)
             broadcast = service.data.get(CONF_BROADCAST_ADDRESS,'255.255.255.255s')
-            new_remotes = []
+            new_allones = []
             disc = await AllOne.discovery(broadcast_address=broadcast,timeout=timeout)
             for _,v in disc.items():
-                if v.hp[0] not in remote_data:
+                if v.hp[0] not in hassdata:
                     mac =  AllOne.print_mac(v.mac)
                     name = "s_"+mac
-                    remote_data[v.hp[0]] = {\
-                        CONF_NAME: name,\
-                        CONF_MAC: mac,\
-                        CONF_HOST: v.hp[0],\
-                        "obj": v,
-                        CONF_TIMEOUT: DEFAULT_TIMEOUT,
-                        CONF_COMMANDS: []}
                     msg = "Discovered new AllOne device %s" % v
-                    new_remotes.append(AllOneRemote(name,[],v))
+                    xiaomi_miio_remote = AllOneRemote(name,v,{},'')
+                    new_allones.append(xiaomi_miio_remote)
+                    hassdata[v.hp[0]] = xiaomi_miio_remote
+                    hassdata[name] = xiaomi_miio_remote
                 else:
                     msg = "Re-Discovered AllOne device %s" % v
                 _LOGGER.info(msg)
                 hass.components.persistent_notification.async_create(
                             msg, title='AllOne remote')
-            if new_remotes:
-                async_add_entities(new_remotes)
+            if new_allones:
+                async_add_entities(new_allones)
             
 
     hass.services.async_register(DOMAIN, SERVICE_LEARN, async_service_handler,
@@ -177,12 +209,14 @@ async def async_setup_platform(hass, config, async_add_entities,
 class AllOneRemote(RemoteDevice):
     """Representation of a Xiaomi Miio Remote device."""
 
-    def __init__(self, friendly_name, commands, device):
+    def __init__(self, friendly_name, device, commands, main_entity):
         """Initialize the remote."""
         self._name = friendly_name
         self._device = device
+        self._state = STATE_OFF
         self._commands = commands
-        self._state = 'off'
+        self._states = dict(last_learned=dict(name='',code=''),key_to_learn='')
+        self._main = main_entity
 
     @property
     def name(self):
@@ -195,19 +229,68 @@ class AllOneRemote(RemoteDevice):
         return self._device
 
     @property
+    def state(self):
+        """Return the state."""
+        return self._state
+
+    @property
     def is_on(self):
         """Return False if device is unreachable, else True."""
-        return self._state == "on"
+        return self._state != STATE_OFF
 
     @property
     def should_poll(self):
         """We should not be polled for device up state."""
         return True
     
+    async def enter_learning_mode(self,timeout = -1,retry=3):
+        self._state = STATE_LEARNING_INIT
+        await self.async_update_ha_state()
+        rv = await self._device.enter_learning_mode(timeout = timeout, retry = retry)
+        if rv:
+            self._state = STATE_LEARNING_OK
+        return rv
+    
+    async def exit_learning_mode(self,timeout = -1,retry=3):
+        self._state = STATE_ON
+        await self.async_update_ha_state()
+        return True
+
+    async def get_learned_key(self,timeout = 30,keyname = 'NA'):
+        self._state = STATE_LEARNING_KEY
+        self._states['key_to_learn'] = keyname
+        await self.async_update_ha_state()
+        rv = await self._device.get_learned_key(timeout = timeout)
+        if rv:
+            rv = rv[0]
+            self._states['last_learned']['name'] = keyname
+            self._states['last_learned']['code'] = binascii.hexlify(rv).decode('utf8')
+        self._state = STATE_LEARNING_OK
+        self._states['key_to_learn'] = ''
+        await self.async_update_ha_state()
+        return rv
+    
+    @property
+    def device_state_attributes(self):
+        """Hide remote by default."""
+        return self._states
+    
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
-        self._state = STATE_ON if await self._device.subscribe_if_necessary() else STATE_OFF
-        _LOGGER.info("New state is %s",self._state)
+        if len(self._main):
+            sto = self.hass.states.get("remote."+self._main)
+            self._state = sto.state
+            self._states = sto.attributes
+        else:
+            if not self._state.startswith(STATE_LEARNING):
+                if await self._device.subscribe_if_necessary():
+                    if self._state==STATE_OFF:
+                        self._state = STATE_ON
+                else:
+                    self._state = STATE_OFF
+                    self._states['last_learned']['name'] = ''
+                    self._states['last_learned']['code'] = ''
+                _LOGGER.debug("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):
         """Turn the device on."""
@@ -222,7 +305,7 @@ class AllOneRemote(RemoteDevice):
     async def _send_command(self, packet, totretry):
         try:
             if type(packet) is tuple:
-                num = packet[1]            
+                num = packet[1]
                 pid = packet[0][0]
                 packet = packet[0][1:]
             else:
@@ -244,8 +327,8 @@ class AllOneRemote(RemoteDevice):
                 return True
             else:
                 return False
-        except:
-            _LOGGER.error("Err1: %s ",traceback.format_exc())
+        except BaseException as ex:
+            _LOGGER.error("Err1: %s ",ex)
             return False
         if num<=0:
             num = 1
@@ -253,16 +336,19 @@ class AllOneRemote(RemoteDevice):
             _LOGGER.info("I am sending %s, Final len is %d",add,len(payload))
             await self._device.emit_ir(payload,retry=totretry)
         return False
-                        
+
     def command2payloads(self,command):
         _LOGGER.info("Searching for %s", command)
         if command in self._commands:
             _LOGGER.info("%s found in commands", command)
-            return self._commands[command][CONF_COMMAND]
+            return self._commands[command]
+        elif command.startswith('@'):
+            return [command[1:]]
         else:
-            mo = re.search("^ch([0-9]+)$", command)
-            if mo is not None and 'ch1' in self._commands:
-                commands = [self._commands["ch"+x][CONF_COMMAND][0] for x in command]
+            mo = re.search("^(([a-zA-Z0-9_]*)@)?([0-9]+)$", command)
+            pre = '' if not mo or not mo[1] else mo[1]
+            if mo is not None and pre+'ch1' in self._commands:
+                    commands = [self._commands[pre+'ch'+x][0] for x in mo[3]]
             else:
                 mo = re.search("^([a-zA-Z0-9_]+)#([0-9]+)$",command)
                 if mo is not None:
@@ -271,7 +357,7 @@ class AllOneRemote(RemoteDevice):
                     _LOGGER.info("%s rep %d. Searching...", nm,num)
                     if nm in self._commands:
                         _LOGGER.info("%s found in commands", nm)
-                        cmdl = self._commands[nm][CONF_COMMAND]
+                        cmdl = self._commands[nm]
                         return list(zip(cmdl,[num for _ in range(len(cmdl))]))
                     else:
                         return []
