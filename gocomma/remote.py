@@ -140,7 +140,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                         packet = await entity.get_learned_key(timeout,keyname)
                         if packet:
                             b64k = b64encode(packet).decode('utf8')
-                            notif = '{}:\n    - r"{}"\n'.format(keyname,b64k)
+                            notif = '{}:\n    - "r{}"\n'.format(keyname,b64k)
                             msg = "Received is: r{} or h{}".\
                                       format(b64k,binascii.hexlify(packet).decode('utf8'))
                         else:
