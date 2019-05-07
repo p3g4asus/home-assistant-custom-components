@@ -132,6 +132,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                 keynames = service.data.get(CONF_KEYS,[])
                 for xx in range(numkeys):
                     try:
+                        await asyncio.sleep(3)
                         keyname = keynames[xx] if xx<len(keynames) else 'NA_%d' % (xx+1)
                         msg = "Press the key you want Home Assistant to learn [%s] %d/%d" %(keyname,xx+1,numkeys)
                         _LOGGER.info(msg)
@@ -139,7 +140,7 @@ async def async_setup_platform(hass, config, async_add_entities,
                         packet = await entity.get_learned_key(timeout,keyname)
                         if packet:
                             b64k = b64encode(packet).decode('utf8')
-                            notif = '{}:\n    - r{}\n'.format(keyname,b64k)
+                            notif = '{}:\n    - r"{}"\n'.format(keyname,b64k)
                             msg = "Received is: r{} or h{}".\
                                       format(b64k,binascii.hexlify(packet).decode('utf8'))
                         else:
