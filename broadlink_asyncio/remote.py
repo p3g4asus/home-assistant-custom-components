@@ -39,7 +39,7 @@ DEFAULT_TIMEOUT = 5
 LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
     vol.Optional(CONF_TIMEOUT, default=30): vol.All(int, vol.Range(min=10)),
-    vol.Optional(CONF_KEYS,default=[]): vol.All(cv.ensure_list, [cv.slug])
+    vol.Optional(CONF_KEYS,default=["NA_1"]): vol.All(cv.ensure_list, [cv.slug])
 })
 
 COMMAND_SCHEMA = vol.All(cv.ensure_list, [cv.string])
@@ -111,8 +111,8 @@ async def async_setup_platform(hass, config, async_add_entities,
         entity = hass.data[DATA_KEY][entity_id]
         
         timeout = service.data.get(CONF_TIMEOUT, 30)
-        keynames = service.data.get(CONF_KEYS,[])
-        numkeys = len(keynames) if len(keynames) else 1
+        keynames = service.data.get(CONF_KEYS,["NA_1"])
+        numkeys = len(keynames)
         pn = hass.components.persistent_notification
         allnot = ''
         msg = ''
@@ -121,7 +121,7 @@ async def async_setup_platform(hass, config, async_add_entities,
             try:
                 if await entity.enter_learning_mode():
                     await asyncio.sleep(3)
-                    keyname = keynames[xx] if xx<len(keynames) else 'NA_%d' % (xx+1)
+                    keyname = keynames[xx]
                     msg = "Press the key you want Home Assistant to learn [%s] %d/%d" %(keyname,xx+1,numkeys)
                     _LOGGER.info(msg)
                     pn.async_create(msg, title='Broadlink RM',notification_id='broadlink_asyncio_learning')
