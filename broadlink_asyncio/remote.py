@@ -33,14 +33,12 @@ DATA_KEY = 'remote.broadlink_asyncio'
 
 CONF_REMOTES = 'remotes'
 CONF_KEYS = 'keys'
-CONF_NUMBER_OK_KEYS = "keyn"
 
 DEFAULT_TIMEOUT = 5
 
 LEARN_COMMAND_SCHEMA = vol.Schema({
     vol.Required(ATTR_ENTITY_ID): vol.All(str),
     vol.Optional(CONF_TIMEOUT, default=30): vol.All(int, vol.Range(min=10)),
-    vol.Optional(CONF_NUMBER_OK_KEYS,default=1): vol.All(int, vol.Range(min=1)),
     vol.Optional(CONF_KEYS,default=[]): vol.All(cv.ensure_list, [cv.slug])
 })
 
@@ -113,8 +111,8 @@ async def async_setup_platform(hass, config, async_add_entities,
         entity = hass.data[DATA_KEY][entity_id]
         
         timeout = service.data.get(CONF_TIMEOUT, 30)
-        numkeys = service.data.get(CONF_NUMBER_OK_KEYS,1)
         keynames = service.data.get(CONF_KEYS,[])
+        numkeys = len(keynames) if len(keynames) else 1
         pn = hass.components.persistent_notification
         allnot = ''
         msg = ''
