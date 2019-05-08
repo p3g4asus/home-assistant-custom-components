@@ -208,7 +208,7 @@ class R9Remote(RemoteDevice):
     
     async def enter_learning_mode(self,timeout = -1,retry=3):
         self._state = STATE_LEARNING_INIT
-        self._states['last_learned'] = dict()
+        #self._states['last_learned'] = dict()
         await self.async_update_ha_state()
         rv = await self._device.enter_learning_mode(timeout = timeout, retry = retry)
         if rv:
