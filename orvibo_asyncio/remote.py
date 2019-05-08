@@ -214,7 +214,7 @@ class AllOneRemote(RemoteDevice):
         self._device = device
         self._state = STATE_OFF
         self._commands = commands
-        self._states = dict(last_learned=dict(name='',code=''),key_to_learn='')
+        self._states = dict(last_learned=dict(),key_to_learn='')
         self._main = main_entity
 
     @property
@@ -244,6 +244,7 @@ class AllOneRemote(RemoteDevice):
     
     async def enter_learning_mode(self,timeout = -1,retry=3):
         self._state = STATE_LEARNING_INIT
+        self._states['last_learned'] = dict()
         await self.async_update_ha_state()
         rv = await self._device.enter_learning_mode(timeout = timeout, retry = retry)
         if rv:
@@ -261,8 +262,7 @@ class AllOneRemote(RemoteDevice):
         await self.async_update_ha_state()
         rv = await self._device.get_learned_key(timeout = timeout)
         if rv:
-            self._states['last_learned']['name'] = keyname
-            self._states['last_learned']['code'] = binascii.hexlify(rv).decode('utf8')
+            self._states['last_learned'][keyname] = binascii.hexlify(rv).decode('utf8')
         self._state = STATE_LEARNING_OK
         self._states['key_to_learn'] = ''
         await self.async_update_ha_state()
@@ -286,8 +286,7 @@ class AllOneRemote(RemoteDevice):
                         self._state = STATE_ON
                 else:
                     self._state = STATE_OFF
-                    self._states['last_learned']['name'] = ''
-                    self._states['last_learned']['code'] = ''
+                    self._states['last_learned'] = dict()
                 _LOGGER.debug("New state is %s",self._state)
 
     async def async_turn_on(self, **kwargs):
