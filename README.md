@@ -356,7 +356,7 @@ See [broadlink_asyncio](#broadlink_asyncio_commands). The supported commands can
 Examples of command list:
 
 example| action
-:--- | :---| :---
+:--- | :---
 `["ch345"]`| will send `KEY_3`, `KEY_4` and `KEY_5` in sequence
 `["KEY_SOURCE#3"]`| will send `KEY_SOURCE`, three times
 `["KEY_SOURCE","t1","KEY_LEFT","t0.5","KEY_LEFT"]`| will send `KEY_SOURCE`, wait 1s, send `KEY_LEFT`, wait 0.5s and send `KEY_LEFT`.
@@ -521,7 +521,7 @@ See [broadlink_asyncio](#broadlink_asyncio_commands). The allowed commands are:
 Examples of command list:
 
 example| action
-:--- | :---| :---
+:--- | :---
 `["ch340"]` | will set TV channel to 340
 `["sr#1"]`| will set the AV source to the second one (HDMI1?) in the sources list. Usually the first one (index 0) is the TV source.
 
@@ -604,7 +604,7 @@ Please refer to the original [google_assistant component](https://www.home-assis
 Script parameter can be specified by the `data` dict or the `data_template` dict. When using the original google_assistant component, the script invocation will always be seen as a scene that can be activated. When using the modified google_assistant component, the `data_template` field, the `onff_template` field and the `brightness_template` field, the script invocation will be seen by google as a light that can be switched on or off and whose brightness can be trimmed. `data_template` should expand to a valid dict in JSON format. This will be passed as `data` when invoking the script. Inside `data_template`, you can use the following variables:
 
 variable | value
-:--- | :---| :---
+:--- | :---
 **on** | `1` if a turn on action was invoked<br/>`0` if a turn off action was invoked<br/>`-1` if a brightness set action was invoked
 **variable** | requested absolute brightness value if a brightness set action was invoked<br/>`-1` otherwise
 
