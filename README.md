@@ -38,10 +38,10 @@ remote:
                   - $commandstring_volume_m$
           hifi:
               source:
-                 - $commandstring_source1$
-                 - $commandstring_source2$
+                  - $commandstring_source1$
+                  - $commandstring_source2$
               equalization:
-                 - $commandstring_equalization$
+                  - $commandstring_equalization$
 ```
 
 ### Configuration variables
@@ -138,13 +138,13 @@ Switch component that supports Orvibo s20 devices. To get started put `/orvibo_a
 
 ```yaml
 switch:
-  - platform: orvibo_asyncio
-    discovery: true
-    switches:
-        - host: $ip_addr$
-          mac: $mac_addr$
-          name: lamp
-          timeout: $timeout$
+    - platform: orvibo_asyncio
+      discovery: true
+      switches:
+          - host: $ip_addr$
+            mac: $mac_addr$
+            name: lamp
+            timeout: $timeout$
 ```
 ### Configuration variables
 
@@ -204,30 +204,30 @@ Please note that this component is NOT compatible with the official `orvibo` com
 
 ```yaml
 remote:
-  - platform: orvibo_asyncio
-    discovery: true
-    remotes:
-        - host: $ip_addr$
-          mac: $mac_addr$
-          name: diningroom
-          timeout: $timeout$
-          remotes:
-              maintv:
-                  ch0:
-                      - $commandstring_ch0$
-                  ch1:
-                      - $commandstring_ch1$
-                  mute:
-                      - $commandstring_mute$
-                  volume_p:
-                      - $commandstring_volume_p$
-                  volume_m:
-                      - $commandstring_volume_m$
-              hifi:
-                  source:
-                     - $commandstring_source$
-                  equalization:
-                     - $commandstring_equalization$
+    - platform: orvibo_asyncio
+      discovery: true
+      remotes:
+          - host: $ip_addr$
+            mac: $mac_addr$
+            name: diningroom
+            timeout: $timeout$
+            remotes:
+                maintv:
+                    ch0:
+                        - $commandstring_ch0$
+                    ch1:
+                        - $commandstring_ch1$
+                    mute:
+                        - $commandstring_mute$
+                    volume_p:
+                        - $commandstring_volume_p$
+                    volume_m:
+                        - $commandstring_volume_m$
+                hifi:
+                    source:
+                        - $commandstring_source$
+                    equalization:
+                        - $commandstring_equalization$
 ```
 ### Configuration variables
 
@@ -296,10 +296,10 @@ remote:
                   - $commandstring_volume_m$
           hifi:
               source:
-                 - $commandstring_source1$
-                 - $commandstring_source2$
+                  - $commandstring_source1$
+                  - $commandstring_source2$
               equalization:
-                 - $commandstring_equalization$
+                  - $commandstring_equalization$
 ```
 
 ### Configuration variables
@@ -470,10 +470,10 @@ To get started put `/upnp_maintvagent2/` here:
 ### Example configuration.yaml
 ```yaml
 remote:
-  - platform: upnp_maintvagent2
-    name: samsung_tv_mta2
-    url: $upnp_url$
-    timeout: 10
+    - platform: upnp_maintvagent2
+      name: samsung_tv_mta2
+      url: $upnp_url$
+      timeout: 10
 ```
 
 ### Configuration variables
