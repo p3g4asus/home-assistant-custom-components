@@ -198,7 +198,6 @@ Please note that this component is NOT compatible with the official `orvibo` com
 ```yaml
 remote:
     - platform: orvibo_asyncio
-      discovery: true
       host: $ip_addr$
       mac: $mac_addr$
       name: diningroom
