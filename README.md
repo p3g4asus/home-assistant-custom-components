@@ -133,7 +133,7 @@ key| value
 
 ## orvibo_asyncio switch
 
-Switch component that supports Orvibo s20 devices. To get started put `/orvibo_asyncio/(switch|__init__).pi` here:
+Switch component that supports Orvibo s20 devices. To get started put `/orvibo_asyncio/(switch|__init__).py` here:
 `<config directory>/custom_components/orvibo_asyncio/`.  Please note that this component is NOT compatible with the official `orvibo` component. They should not be enabled simultaneously.
 
 ### <a name="orvibo_asyncio_switch_configuration"></a>Example configuration.yaml
