@@ -249,7 +249,7 @@ key | description| example
 
 ### Entities created
 
-The component will create an entity for each remote defined in the Allone array. If any Allone device is found during discovery, an entity  for each previously unknown smart remote is created with id `switch.s_aabbccddeeff` where `aa:bb:cc:dd:ee:ff` is the Allone mac address. The above example will create 3 entities with the following ids:
+The component will create an entity for each remote defined in the Allone array. If any Allone device is found during discovery, an entity  for each previously unknown smart remote is created with id `remote.s_aabbccddeeff` where `aa:bb:cc:dd:ee:ff` is the Allone mac address. The above example will create 3 entities with the following ids:
  - `remote.diningroom_maintv`
  - `remote.diningroom_hifi`
  - `remote.diningroom`
