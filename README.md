@@ -1,3 +1,5 @@
+
+
 # home-assistant-custom-components
 
 This is a set of custom components for home-assistant. To install any of them simply place its folder inside your `<config directory>/custom_components` folder.
@@ -7,8 +9,8 @@ Table of components:
  - [orvibo_asyncio remote](#orvibo_asyncio-remote): RemoteDevice component that supports Orvibo Allone smart remotes.
  - [gocomma](#gocomma): RemoteDevice component that supports Gocomma r9 smart remotes (and maybe also other Tuya smart remotes).
  - [samsungctl_remote](#samsungctl_remote): RemoteDevice component that uses samsung TV network protocol (see [samsungctl](https://github.com/kdschlosser/samsungctl)).
- - [upnpremote_rc](#upnpremote_rc): RemoteDevice component that uses UPNP RenderingControl service to control volume, brightness, contrast, sharpness, muteness of a smart TV device.
- - [upnpremote_mta2](#upnpremote_mta2): RemoteDevice component that uses UPNP MainTVAgent2 service to set channel and video source of some Samsung smart TVs.
+ - [upnp_renderingcontrol](#upnp_renderingcontrol): RemoteDevice component that uses UPNP RenderingControl service to control volume, brightness, contrast, sharpness, muteness of a smart TV device.
+ - [upnp_maintvagent2](#upnp_maintvagent2): RemoteDevice component that uses UPNP MainTVAgent2 service to set channel and video source of some Samsung smart TVs.
  - [google_assistant](#google_assistant): A modified version of home-assistant [google-assistant component](https://www.home-assistant.io/components/google_assistant/) to support calling script that need parameters.
 
 ## broadlink_asyncio
@@ -38,10 +40,10 @@ remote:
                   - $commandstring_volume_m$
           hifi:
               source:
-                 - $commandstring_source1$
-                 - $commandstring_source2$
+                  - $commandstring_source1$
+                  - $commandstring_source2$
               equalization:
-                 - $commandstring_equalization$
+                  - $commandstring_equalization$
 ```
 
 ### Configuration variables
@@ -138,26 +140,17 @@ Switch component that supports Orvibo s20 devices. To get started put `/orvibo_a
 
 ```yaml
 switch:
-  - platform: orvibo_asyncio
-    discovery: true
-    switches:
-        - host: $ip_addr$
-          mac: $mac_addr$
-          name: lamp
-          timeout: $timeout$
+    - platform: orvibo_asyncio
+      host: $ip_addr$
+      mac: $mac_addr$
+      name: lamp
+      timeout: $timeout$
 ```
 ### Configuration variables
 
 key | description| example
 :--- | :---| :---
 **platform (Required)** | **Must be** `orvibo_asyncio` | `orvibo_asyncio`
-**discovery (Optional)** | discover new Orvibo s20 on platform initialization. **Default** `false`| `true` 
-**switches (Optional)** | list of Orvibo s20. **Default** `empty`| See [above](#orvibo_asyncio_switch_configuration)
-
-s20 list detail:
-
-key | description| example
-:--- | :---| :---
 **name (Required)** | Name your device | `lamp`
 **host (Required)** | The ip address of your Orvibo s20 | `192.168.25.44`
 **mac (Required)** | The mac address of your Orvibo s20 | `AA:BB:CC:DD:EE:FF` <br/>or<br/> `AABBCCDDEEFF`
@@ -165,7 +158,7 @@ key | description| example
 
 ### Entities created
 
-The component will create an entity for each switch defined in the switch array. If any s20 device is found during discovery, an entity  for each previously unknown switch is created with id `switch.s_aabbccddeeff` where `aa:bb:cc:dd:ee:ff` is the s20 mac address. The above example will create and register an entity with id `switch.lamp`.
+The component will create an entity for each switch defined in the switch array. The above example will create and register an entity with id `switch.lamp`.
 
 ### Sending commands
 
@@ -204,43 +197,35 @@ Please note that this component is NOT compatible with the official `orvibo` com
 
 ```yaml
 remote:
-  - platform: orvibo_asyncio
-    discovery: true
-    remotes:
-        - host: $ip_addr$
-          mac: $mac_addr$
-          name: diningroom
-          timeout: $timeout$
-          remotes:
-              maintv:
-                  ch0:
-                      - $commandstring_ch0$
-                  ch1:
-                      - $commandstring_ch1$
-                  mute:
-                      - $commandstring_mute$
-                  volume_p:
-                      - $commandstring_volume_p$
-                  volume_m:
-                      - $commandstring_volume_m$
-              hifi:
-                  source:
-                     - $commandstring_source$
-                  equalization:
-                     - $commandstring_equalization$
+    - platform: orvibo_asyncio
+      discovery: true
+      host: $ip_addr$
+      mac: $mac_addr$
+      name: diningroom
+      timeout: $timeout$
+      remotes:
+          maintv:
+              ch0:
+                  - $commandstring_ch0$
+              ch1:
+                  - $commandstring_ch1$
+              mute:
+                  - $commandstring_mute$
+              volume_p:
+                  - $commandstring_volume_p$
+              volume_m:
+                  - $commandstring_volume_m$
+          hifi:
+              source:
+                  - $commandstring_source$
+              equalization:
+                  - $commandstring_equalization$
 ```
 ### Configuration variables
 
 key | description| example
 :--- | :---| :---
 **platform (Required)** | **Must be** `orvibo_asyncio` | `orvibo_asyncio`
-**discovery (Optional)** | discover new Orvibo Allone on platform initialization. **Default** `false`| `true` 
-**remotes (Optional)** | list of Orvibo Allone. **Default** `empty`| See [above](#orvibo_asyncio_remote_configuration)
-
-Allone list detail:
-
-key | description| example
-:--- | :---| :---
 **name (Required)** | Name your device | `diningroom`
 **host (Required)** | The ip address of your Orvibo Allone | `192.168.25.44`
 **mac (Required)** | The mac address of your Orvibo Allone | `AA:BB:CC:DD:EE:FF` <br/>or<br/> `AABBCCDDEEFF`
@@ -249,7 +234,8 @@ key | description| example
 
 ### Entities created
 
-The component will create an entity for each remote defined in the Allone array. If any Allone device is found during discovery, an entity  for each previously unknown smart remote is created with id `switch.s_aabbccddeeff` where `aa:bb:cc:dd:ee:ff` is the Allone mac address. The above example will create 3 entities with the following ids:
+
+The component will create an entity for each remote defined in the Allone array.  The above example will create 3 entities with the following ids:
  - `remote.diningroom_maintv`
  - `remote.diningroom_hifi`
  - `remote.diningroom`
@@ -262,8 +248,8 @@ See [broadlink_asyncio](#broadlink_asyncio_learning).
 
 ### Discovery service
 
-The service name is `remote.orvibo_asyncio_remote_discovery`.
-See [orvibo_asyncio](#orvibo_asyncio_discovery).
+The service name is `remote.orvibo_asyncio_remote_discovery`. New entities will be crated in the `remote` domain.
+See [orvibo_asyncio](#orvibo_asyncio_discovery) for details.
 
 ### Entity state and attributes
 See [broadlink_asyncio](#broadlink_asyncio_state).
@@ -296,10 +282,10 @@ remote:
                   - $commandstring_volume_m$
           hifi:
               source:
-                 - $commandstring_source1$
-                 - $commandstring_source2$
+                  - $commandstring_source1$
+                  - $commandstring_source2$
               equalization:
-                 - $commandstring_equalization$
+                  - $commandstring_equalization$
 ```
 
 ### Configuration variables
@@ -373,16 +359,16 @@ value| meaning
 
 The remote entity does not provide attributes.
 
-## upnpremote_rc
+## upnp_renderingcontrol
 
 RemoteDevice component that uses UPNP RenderingControl service to control volume, brightness, contrast, sharpness, muteness of a smart TV.
-To get started put `/upnpremote_rc/` here:
-`<config directory>/custom_components/upnpremote_rc/`.
+To get started put `/upnp_renderingcontrol/` here:
+`<config directory>/custom_components/upnp_renderingcontrol/`.
 
 ### Example configuration.yaml
 ```yaml
 remote:
-    - platform: upnpremote_rc
+    - platform: upnp_renderingcontrol
       name: samsung_tv_rc
       url: $upnp_url$
       timeout: 10
@@ -392,7 +378,7 @@ remote:
 
 key | description| example
 :--- | :---| :---
-**platform (Required)** | **Must be** `upnpremote_rc` | `upnpremote_rc`
+**platform (Required)** | **Must be** `upnp_renderingcontrol` | `upnp_renderingcontrol`
 **name (Required)** | Name your device | `samsung_tv_rc`
 **url (Required)** | The http URL of the RenderingControl service of the TV to control. | `http://192.168.25.44/tvrc.xml`
 **timeout (Optional)** | Timeout in seconds used in the communication with your TV. **Default** `5` | `10`
@@ -461,26 +447,26 @@ key| value
 **sharpness** | the current sharpness of the TV.
 **mute** | the current mute state of the TV.
 
-## upnpremote_mta2
+## upnp_maintvagent2
 
 RemoteDevice component that uses UPNP MainTVAgent2 service  to set channel and video source of some Samsung smart TVs.
-To get started put `/upnpremote_mta2/` here:
-`<config directory>/custom_components/upnpremote_mta2/`.
+To get started put `/upnp_maintvagent2/` here:
+`<config directory>/custom_components/upnp_maintvagent2/`.
 
 ### Example configuration.yaml
 ```yaml
 remote:
-  - platform: upnpremote_mta2
-    name: samsung_tv_mta2
-    url: $upnp_url$
-    timeout: 10
+    - platform: upnp_maintvagent2
+      name: samsung_tv_mta2
+      url: $upnp_url$
+      timeout: 10
 ```
 
 ### Configuration variables
 
 key | description| example
 :--- | :---| :---
-**platform (Required)** | **Must be** `upnpremote_mta2` | `upnpremote_mta2`
+**platform (Required)** | **Must be** `upnp_maintvagent2` | `upnp_maintvagent2`
 **name (Required)** | Name your device | `samsung_tv_mta2`
 **url (Required)** | The http URL of the MainTVAgent2 service of the TV to control. | `http://192.168.25.44/tvmta2.xml`
 **timeout (Optional)** | Timeout in seconds used in the communication with your TV. **Default** `5` | `10`

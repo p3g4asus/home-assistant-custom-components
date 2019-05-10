@@ -1,0 +1,9 @@
+{
+  "domain": "samsungctl_remote",
+  "name": "Samsungctl Remote",
+  "documentation": "https://github.com/p3g4asus/home-assistant-custom-components",
+  "dependencies": ["remote"],
+  "codeowners": ["@p3g4asus"],
+  "requirements": [],
+  "version": "2.0"
+}

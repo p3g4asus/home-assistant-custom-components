@@ -1,0 +1,9 @@
+{
+  "domain": "gocomma",
+  "name": "Gocomma R9",
+  "documentation": "https://github.com/p3g4asus/home-assistant-custom-components",
+  "dependencies": ["remote"],
+  "codeowners": ["@p3g4asus"],
+  "requirements": ["pygocomma>=1.3"],
+  "version": "2.0"
+}

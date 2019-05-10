@@ -1,9 +1,3 @@
-'''
-Created on 25 apr 2019
-
-@author: Matteo
-'''
-from .const import CONF_BROADCAST_ADDRESS
 """
 Support for Orvibo S20 Wifi Smart Switches.
 
@@ -16,10 +10,13 @@ import voluptuous as vol
 
 from homeassistant.components.switch import (SwitchDevice, PLATFORM_SCHEMA, DOMAIN)
 from homeassistant.const import (
-    CONF_HOST, CONF_NAME, CONF_SWITCHES, CONF_MAC, CONF_DISCOVERY, CONF_TIMEOUT)
+    CONF_HOST, CONF_NAME, CONF_MAC, CONF_TIMEOUT)
 import homeassistant.helpers.config_validation as cv
 from datetime import timedelta
 from homeassistant.util import (Throttle)
+from .const import (CONF_BROADCAST_ADDRESS,ORVIBO_ASYNCIO_DATA_KEY)
+from . import get_orvibo_class
+
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=2)
 REQUIREMENTS = ['asyncio-orvibo>=1.2']
 
@@ -37,49 +34,27 @@ DISCOVERY_COMMAND_SCHEMA = vol.Schema({
 })
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_SWITCHES, default=[]):
-        vol.All(cv.ensure_list, [{
-            vol.Required(CONF_HOST): cv.string,
-            vol.Optional(CONF_MAC): cv.string,
-            vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(int, vol.Range(min=1)),
-            vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string
-        }]),
-    vol.Optional(CONF_DISCOVERY, default=DEFAULT_DISCOVERY): cv.boolean,
+    vol.Required(CONF_HOST): cv.string,
+    vol.Optional(CONF_MAC): cv.string,
+    vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(int, vol.Range(min=1)),
+    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string
 })
 
 
 async def async_setup_platform(hass, config, async_add_entities,
                                discovery_info=None):
     """Set up S20 switches."""
-    from asyncio_orvibo.s20 import S20
-    from asyncio_orvibo.orvibo_udp import PORT
-
-    switch_data = {}
-    switches = []
-    switch_conf = config.get(CONF_SWITCHES, [config])
-    for switch in switch_conf:
-        switch_data[switch.get(CONF_HOST)] = switch
-    if config.get(CONF_DISCOVERY):
-        _LOGGER.info("Discovering S20 switches ...")
-        disc = await S20.discovery()
-        for _,v in disc.items():
-            if v.hp[0] not in switch_data:
-                mac =  S20.print_mac(v.mac)
-                switch_data[v.hp[0]] = {\
-                    CONF_NAME: "s_"+mac,\
-                    CONF_MAC: mac,\
-                    CONF_TIMEOUT: DEFAULT_TIMEOUT,\
-                    CONF_HOST: v.hp[0],\
-                    "obj": v}
-            else:
-                switch_data[v.hp[0]]["obj"] = v
+    S20 = get_orvibo_class(hass.data,'S20')
+    PORT = hass.data[ORVIBO_ASYNCIO_DATA_KEY]["PORT"]
     
-    for _,data in switch_data.items():
-        if "obj" not in data:
-            data["obj"] = S20((data.get(CONF_HOST),PORT), mac=data.get(CONF_MAC),timeout=data.get(CONF_TIMEOUT))
-        switches.append(S20Switch(data.get(CONF_NAME),\
-                      data["obj"]))
-    hass.data[DATA_KEY] = switch_data
+    if DATA_KEY not in hass.data:
+        hass.data[DATA_KEY] = {}
+    hassdata = hass.data[DATA_KEY]
+    host = config.get(CONF_HOST)
+    s20_obj = S20((host,PORT), mac=config.get(CONF_MAC),timeout=config.get(CONF_TIMEOUT))
+    s20_entity = S20Switch(config.get(CONF_NAME), s20_obj)
+    async_add_entities([s20_entity])
+    hassdata[host] = s20_entity
     
     async def async_service_handler(service):
         """Handle a learn command."""
@@ -111,8 +86,6 @@ async def async_setup_platform(hass, config, async_add_entities,
 
     hass.services.async_register(DOMAIN, SERVICE_DISCOVERY, async_service_handler,
                                  schema=DISCOVERY_COMMAND_SCHEMA)
-
-    async_add_entities(switches)
 
 
 class S20Switch(SwitchDevice):

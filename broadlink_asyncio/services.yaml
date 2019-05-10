@@ -1,0 +1,19 @@
+# Example services.yaml entry
+
+broadlink_asyncio_learn:
+  # Description of the service
+  description: Learns keys for the remote
+  # Different fields that your service accepts
+  fields:
+    # Key of the field
+    entity_id:
+      # Description of the field
+      description: Name of the remote to use for learning
+      # Example value that can be passed for this field
+      example: 'remote.diningroom'
+    timeout:
+      description: (Optional, Default=30) maximum time in seconds to wait for key
+      example: 40
+    keys:
+      description: (Optional, Default=['NA_1']) list of the names of the keys to learn
+      example: ['volume_up','volume_down','ch0']
