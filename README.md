@@ -234,6 +234,7 @@ key | description| example
 
 ### Entities created
 
+
 The component will create an entity for each remote defined in the Allone array.  The above example will create 3 entities with the following ids:
  - `remote.diningroom_maintv`
  - `remote.diningroom_hifi`
