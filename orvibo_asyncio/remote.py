@@ -13,10 +13,11 @@ from homeassistant.components.remote import (
     DEFAULT_DELAY_SECS, RemoteDevice, ATTR_HOLD_SECS, DEFAULT_HOLD_SECS)
 from homeassistant.const import (
     CONF_NAME, CONF_HOST, CONF_MAC, CONF_TIMEOUT,
-    ATTR_ENTITY_ID, CONF_DISCOVERY, STATE_OFF,STATE_ON)
+    ATTR_ENTITY_ID, STATE_OFF,STATE_ON)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
-from .const import CONF_BROADCAST_ADDRESS
+from .const import (CONF_BROADCAST_ADDRESS,ORVIBO_ASYNCIO_DATA_KEY)
+from . import get_orvibo_class
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=30)
 
@@ -53,7 +54,7 @@ COMMAND_SCHEMA = vol.All(cv.ensure_list, [cv.string])
 
 KEYS_SCHEMA = cv.schema_with_slug_keys(COMMAND_SCHEMA)
 
-ALLONE_SCHEMA = vol.Schema({
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_NAME): cv.slug,
     vol.Required(CONF_HOST): cv.string,
     vol.Required(CONF_MAC): cv.string,
@@ -61,69 +62,34 @@ ALLONE_SCHEMA = vol.Schema({
         vol.All(int, vol.Range(min=1)),
     vol.Optional(CONF_REMOTES, default={}):
         cv.schema_with_slug_keys(KEYS_SCHEMA),
-}, extra=vol.ALLOW_EXTRA)
-
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-   vol.Required(CONF_REMOTES, default=[]):
-    vol.All(cv.ensure_list, [ALLONE_SCHEMA]),
-    vol.Optional(CONF_DISCOVERY, default=False): cv.boolean,
 })
 
 
 async def async_setup_platform(hass, config, async_add_entities,
                                discovery_info=None):
-    
-    from asyncio_orvibo.allone import AllOne
-    from asyncio_orvibo.orvibo_udp import PORT
+    AllOne = get_orvibo_class(hass.data,'AllOne')
+    PORT = hass.data[ORVIBO_ASYNCIO_DATA_KEY]["PORT"]
 
-    allone_data = {}
+    if DATA_KEY not in hass.data:
+        hass.data[DATA_KEY] = {}
+    hassdata = hass.data[DATA_KEY]
     allones = []
-    remote_conf = config.get(CONF_REMOTES, [config])
-    for remote in remote_conf:
-        allone_data[remote.get(CONF_HOST)] = remote
-    if config.get(CONF_DISCOVERY):
-        _LOGGER.info("Discovering AllOne remotes ...")
-        disc = await AllOne.discovery()
-        for _,v in disc.items():
-            if v.hp[0] not in allone_data:
-                mac =  AllOne.print_mac(v.mac)
-                allone_data[v.hp[0]] = {\
-                    CONF_NAME: "s_"+mac,\
-                    CONF_MAC: mac,\
-                    CONF_HOST: v.hp[0],\
-                    "obj": v,
-                    CONF_TIMEOUT: DEFAULT_TIMEOUT,
-                    CONF_REMOTES: {}}
-                _LOGGER.info("Discovered new device %s",v)
-            else:
-                allone_data[v.hp[0]]["obj"] = v
-                _LOGGER.info("Re-Discovered new device %s",v)
-    hassdata = {}
-    for _,data in allone_data.items():
-        friendly_name = data.get(CONF_NAME)
-        host = data.get(CONF_HOST)
-        if "obj" not in data:
-            data["obj"] = AllOne((host,PORT), mac=data.get(CONF_MAC),timeout=data.get(CONF_TIMEOUT))
-            remotes = data.get(CONF_REMOTES)
-            allcmnds = dict()
-            for remnm,remkeys in remotes.items():
-                for keynm,keycmnds in remkeys.items():
-                    allcmnds[remnm+"@"+keynm] = keycmnds
-            xiaomi_miio_remote = AllOneRemote(friendly_name, data["obj"], allcmnds, '')
-            hassdata[friendly_name] = xiaomi_miio_remote
-            hassdata[host] = xiaomi_miio_remote
-            allones.append(xiaomi_miio_remote)
-            for remnm,remkeys in remotes.items():
-                xiaomi_miio_remote = AllOneRemote(friendly_name+"_"+remnm, data["obj"], remkeys, friendly_name)
-                allones.append(xiaomi_miio_remote)
-        else:
-            xiaomi_miio_remote = AllOneRemote(friendly_name, data["obj"],data.get(CONF_REMOTES), '')
-            hassdata[friendly_name] = xiaomi_miio_remote
-            hassdata[host] = xiaomi_miio_remote
-            allones.append(xiaomi_miio_remote)
-    hass.data[DATA_KEY] = hassdata
-    
-    
+    friendly_name = config.get(CONF_NAME)
+    host = config.get(CONF_HOST)
+    allone_obj = AllOne((host,PORT), mac=config.get(CONF_MAC),timeout=config.get(CONF_TIMEOUT))
+    remotes = config.get(CONF_REMOTES)
+    allcmnds = dict()
+    for remnm,remkeys in remotes.items():
+        for keynm,keycmnds in remkeys.items():
+            allcmnds[remnm+"@"+keynm] = keycmnds
+    xiaomi_miio_remote = AllOneRemote(friendly_name, allone_obj, allcmnds, '')
+    hassdata[friendly_name] = xiaomi_miio_remote
+    hassdata[host] = xiaomi_miio_remote
+    allones.append(xiaomi_miio_remote)
+    for remnm,remkeys in remotes.items():
+        xiaomi_miio_remote = AllOneRemote(friendly_name+"_"+remnm, allone_obj, remkeys, friendly_name)
+        allones.append(xiaomi_miio_remote)
+
     async_add_entities(allones)
 
     async def async_service_handler(service):

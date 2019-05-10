@@ -1,3 +1,5 @@
+
+
 # home-assistant-custom-components
 
 This is a set of custom components for home-assistant. To install any of them simply place its folder inside your `<config directory>/custom_components` folder.
@@ -139,25 +141,16 @@ Switch component that supports Orvibo s20 devices. To get started put `/orvibo_a
 ```yaml
 switch:
     - platform: orvibo_asyncio
-      discovery: true
-      switches:
-          - host: $ip_addr$
-            mac: $mac_addr$
-            name: lamp
-            timeout: $timeout$
+      host: $ip_addr$
+      mac: $mac_addr$
+      name: lamp
+      timeout: $timeout$
 ```
 ### Configuration variables
 
 key | description| example
 :--- | :---| :---
 **platform (Required)** | **Must be** `orvibo_asyncio` | `orvibo_asyncio`
-**discovery (Optional)** | discover new Orvibo s20 on platform initialization. **Default** `false`| `true` 
-**switches (Optional)** | list of Orvibo s20. **Default** `empty`| See [above](#orvibo_asyncio_switch_configuration)
-
-s20 list detail:
-
-key | description| example
-:--- | :---| :---
 **name (Required)** | Name your device | `lamp`
 **host (Required)** | The ip address of your Orvibo s20 | `192.168.25.44`
 **mac (Required)** | The mac address of your Orvibo s20 | `AA:BB:CC:DD:EE:FF` <br/>or<br/> `AABBCCDDEEFF`
@@ -165,7 +158,7 @@ key | description| example
 
 ### Entities created
 
-The component will create an entity for each switch defined in the switch array. If any s20 device is found during discovery, an entity  for each previously unknown switch is created with id `switch.s_aabbccddeeff` where `aa:bb:cc:dd:ee:ff` is the s20 mac address. The above example will create and register an entity with id `switch.lamp`.
+The component will create an entity for each switch defined in the switch array. The above example will create and register an entity with id `switch.lamp`.
 
 ### Sending commands
 
@@ -206,41 +199,33 @@ Please note that this component is NOT compatible with the official `orvibo` com
 remote:
     - platform: orvibo_asyncio
       discovery: true
+      host: $ip_addr$
+      mac: $mac_addr$
+      name: diningroom
+      timeout: $timeout$
       remotes:
-          - host: $ip_addr$
-            mac: $mac_addr$
-            name: diningroom
-            timeout: $timeout$
-            remotes:
-                maintv:
-                    ch0:
-                        - $commandstring_ch0$
-                    ch1:
-                        - $commandstring_ch1$
-                    mute:
-                        - $commandstring_mute$
-                    volume_p:
-                        - $commandstring_volume_p$
-                    volume_m:
-                        - $commandstring_volume_m$
-                hifi:
-                    source:
-                        - $commandstring_source$
-                    equalization:
-                        - $commandstring_equalization$
+          maintv:
+              ch0:
+                  - $commandstring_ch0$
+              ch1:
+                  - $commandstring_ch1$
+              mute:
+                  - $commandstring_mute$
+              volume_p:
+                  - $commandstring_volume_p$
+              volume_m:
+                  - $commandstring_volume_m$
+          hifi:
+              source:
+                  - $commandstring_source$
+              equalization:
+                  - $commandstring_equalization$
 ```
 ### Configuration variables
 
 key | description| example
 :--- | :---| :---
 **platform (Required)** | **Must be** `orvibo_asyncio` | `orvibo_asyncio`
-**discovery (Optional)** | discover new Orvibo Allone on platform initialization. **Default** `false`| `true` 
-**remotes (Optional)** | list of Orvibo Allone. **Default** `empty`| See [above](#orvibo_asyncio_remote_configuration)
-
-Allone list detail:
-
-key | description| example
-:--- | :---| :---
 **name (Required)** | Name your device | `diningroom`
 **host (Required)** | The ip address of your Orvibo Allone | `192.168.25.44`
 **mac (Required)** | The mac address of your Orvibo Allone | `AA:BB:CC:DD:EE:FF` <br/>or<br/> `AABBCCDDEEFF`
@@ -249,7 +234,7 @@ key | description| example
 
 ### Entities created
 
-The component will create an entity for each remote defined in the Allone array. If any Allone device is found during discovery, an entity  for each previously unknown smart remote is created with id `switch.s_aabbccddeeff` where `aa:bb:cc:dd:ee:ff` is the Allone mac address. The above example will create 3 entities with the following ids:
+The component will create an entity for each remote defined in the Allone array.  The above example will create 3 entities with the following ids:
  - `remote.diningroom_maintv`
  - `remote.diningroom_hifi`
  - `remote.diningroom`
@@ -262,8 +247,8 @@ See [broadlink_asyncio](#broadlink_asyncio_learning).
 
 ### Discovery service
 
-The service name is `remote.orvibo_asyncio_remote_discovery`.
-See [orvibo_asyncio](#orvibo_asyncio_discovery).
+The service name is `remote.orvibo_asyncio_remote_discovery`. New entities will be crated in the `remote` domain.
+See [orvibo_asyncio](#orvibo_asyncio_discovery) for details.
 
 ### Entity state and attributes
 See [broadlink_asyncio](#broadlink_asyncio_state).
