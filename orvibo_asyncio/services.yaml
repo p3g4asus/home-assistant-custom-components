@@ -15,7 +15,7 @@ orvibo_asyncio_remote_learn:
     keys:
       description: (Optional, Default=['NA_1']) list of the names of the keys to learn
       example: ['volume_up','volume_down','ch0']
-	  
+
 orvibo_asyncio_remote_discovery:
   # Description of the service
   description: Discovers new Orvibo Allone
@@ -27,7 +27,7 @@ orvibo_asyncio_remote_discovery:
     broadcast_address:
       description: (Optional, Default='255.255.255.255') broadcast IP address to use for discovery
       example: '192.168.25.255'
-	  
+
 orvibo_asyncio_switch_discovery:
   # Description of the service
   description: Discovers new Orvibo Allone
