@@ -17,7 +17,7 @@ import traceback
 REQUIREMENTS = ['async-upnp-client==0.14.8']
 _LOGGER = logging.getLogger(__name__)
 
-DATA_KEY = 'upnpremote_rc'
+DATA_KEY = 'rendericgcontrol_remote'
 
 DEFAULT_TIMEOUT = 5
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=1)

@@ -1,0 +1,9 @@
+{
+  "domain": "upnp_renderingcontrol",
+  "name": "RenderingControl UPNP Service",
+  "documentation": "https://github.com/p3g4asus/home-assistant-custom-components",
+  "dependencies": ["remote"],
+  "codeowners": ["@p3g4asus"],
+  "requirements": ["async-upnp-client>=0.14.8"],
+  "version": "2.0"
+}

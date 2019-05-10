@@ -7,8 +7,8 @@ Table of components:
  - [orvibo_asyncio remote](#orvibo_asyncio-remote): RemoteDevice component that supports Orvibo Allone smart remotes.
  - [gocomma](#gocomma): RemoteDevice component that supports Gocomma r9 smart remotes (and maybe also other Tuya smart remotes).
  - [samsungctl_remote](#samsungctl_remote): RemoteDevice component that uses samsung TV network protocol (see [samsungctl](https://github.com/kdschlosser/samsungctl)).
- - [upnpremote_rc](#upnpremote_rc): RemoteDevice component that uses UPNP RenderingControl service to control volume, brightness, contrast, sharpness, muteness of a smart TV device.
- - [upnpremote_mta2](#upnpremote_mta2): RemoteDevice component that uses UPNP MainTVAgent2 service to set channel and video source of some Samsung smart TVs.
+ - [upnp_renderingcontrol](#upnp_renderingcontrol): RemoteDevice component that uses UPNP RenderingControl service to control volume, brightness, contrast, sharpness, muteness of a smart TV device.
+ - [upnp_maintvagent2](#upnp_maintvagent2): RemoteDevice component that uses UPNP MainTVAgent2 service to set channel and video source of some Samsung smart TVs.
  - [google_assistant](#google_assistant): A modified version of home-assistant [google-assistant component](https://www.home-assistant.io/components/google_assistant/) to support calling script that need parameters.
 
 ## broadlink_asyncio
@@ -373,16 +373,16 @@ value| meaning
 
 The remote entity does not provide attributes.
 
-## upnpremote_rc
+## upnp_renderingcontrol
 
 RemoteDevice component that uses UPNP RenderingControl service to control volume, brightness, contrast, sharpness, muteness of a smart TV.
-To get started put `/upnpremote_rc/` here:
-`<config directory>/custom_components/upnpremote_rc/`.
+To get started put `/upnp_renderingcontrol/` here:
+`<config directory>/custom_components/upnp_renderingcontrol/`.
 
 ### Example configuration.yaml
 ```yaml
 remote:
-    - platform: upnpremote_rc
+    - platform: upnp_renderingcontrol
       name: samsung_tv_rc
       url: $upnp_url$
       timeout: 10
@@ -392,7 +392,7 @@ remote:
 
 key | description| example
 :--- | :---| :---
-**platform (Required)** | **Must be** `upnpremote_rc` | `upnpremote_rc`
+**platform (Required)** | **Must be** `upnp_renderingcontrol` | `upnp_renderingcontrol`
 **name (Required)** | Name your device | `samsung_tv_rc`
 **url (Required)** | The http URL of the RenderingControl service of the TV to control. | `http://192.168.25.44/tvrc.xml`
 **timeout (Optional)** | Timeout in seconds used in the communication with your TV. **Default** `5` | `10`
@@ -461,16 +461,16 @@ key| value
 **sharpness** | the current sharpness of the TV.
 **mute** | the current mute state of the TV.
 
-## upnpremote_mta2
+## upnp_maintvagent2
 
 RemoteDevice component that uses UPNP MainTVAgent2 service  to set channel and video source of some Samsung smart TVs.
-To get started put `/upnpremote_mta2/` here:
-`<config directory>/custom_components/upnpremote_mta2/`.
+To get started put `/upnp_maintvagent2/` here:
+`<config directory>/custom_components/upnp_maintvagent2/`.
 
 ### Example configuration.yaml
 ```yaml
 remote:
-  - platform: upnpremote_mta2
+  - platform: upnp_maintvagent2
     name: samsung_tv_mta2
     url: $upnp_url$
     timeout: 10
@@ -480,7 +480,7 @@ remote:
 
 key | description| example
 :--- | :---| :---
-**platform (Required)** | **Must be** `upnpremote_mta2` | `upnpremote_mta2`
+**platform (Required)** | **Must be** `upnp_maintvagent2` | `upnp_maintvagent2`
 **name (Required)** | Name your device | `samsung_tv_mta2`
 **url (Required)** | The http URL of the MainTVAgent2 service of the TV to control. | `http://192.168.25.44/tvmta2.xml`
 **timeout (Optional)** | Timeout in seconds used in the communication with your TV. **Default** `5` | `10`

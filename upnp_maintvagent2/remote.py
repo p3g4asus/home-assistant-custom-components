@@ -20,7 +20,7 @@ import traceback
 REQUIREMENTS = ['async-upnp-client==0.14.8']
 _LOGGER = logging.getLogger(__name__)
 
-DATA_KEY = 'upnpremote_mta2'
+DATA_KEY = 'upnp_maintvagent2_remote'
 
 
 DEFAULT_TIMEOUT = 5
