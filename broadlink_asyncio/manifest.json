@@ -5,5 +5,5 @@
   "dependencies": ["remote"],
   "codeowners": ["@p3g4asus"],
   "requirements": ["pybroadlink>=1.3"],
-  "version": "2.0"
+  "version": "2.1"
 }

@@ -308,7 +308,7 @@ class R9Remote(RemoteDevice):
         elif command.startswith('@'):
             return [command[1:]]
         else:
-            mo = re.search("^(([a-zA-Z0-9_]*)@)?([0-9]+)$", command)
+            mo = re.search("^(([a-zA-Z0-9_]*)@)?ch([0-9]+)$", command)
             pre = '' if not mo or not mo[1] else mo[1]
             if mo is not None and pre+'ch1' in self._commands:
                     commands = [self._commands[pre+'ch'+x][0] for x in mo[3]]
