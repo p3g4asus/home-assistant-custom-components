@@ -76,7 +76,7 @@ class _GoogleEntity:
 
     @staticmethod
     def state_entity_id_from_entity_id(entity_id):
-        mo = re.search("_kkk_[a-zA-Z0-9]+", entity_id)
+        mo = re.search("_kkk_[a-zA-Z0-9_]+", entity_id)
         if mo:
             if mo.start()>0:
                 return entity_id[:mo.start()]
@@ -316,7 +316,8 @@ async def async_devices_sync(hass, data, payload):
             continue
         if state.domain==script.DOMAIN and state.entity_id not in data.config.entity_config:
             for ek,_ in data.config.entity_config.items():
-                if state.entity_id in ek:
+                state_entity_id = _GoogleEntity.state_entity_id_from_entity_id(ek)
+                if state.entity_id==state_entity_id:
                     await add_google_entity(_GoogleEntity(hass, data.config, state, entity_id=ek), devices)
         else:
             await add_google_entity(_GoogleEntity(hass, data.config, state),devices)
@@ -326,6 +327,7 @@ async def async_devices_sync(hass, data, payload):
         'agentUserId': data.context.user_id,
         'devices': devices,
     }
+    _LOGGER.debug("Sync resp %s", str(devices))
 
     return response
 
