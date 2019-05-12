@@ -5,5 +5,5 @@
   "dependencies": ["remote"],
   "codeowners": ["@p3g4asus"],
   "requirements": ["async-upnp-client>=0.14.8"],
-  "version": "2.0"
+  "version": "2.1"
 }

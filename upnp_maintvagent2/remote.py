@@ -317,7 +317,7 @@ class MainTVAgent2Remote(RemoteDevice):
                 return [self._channels[c]]
             else:
                 return []
-        mo = re.search("^sr#([0-9]+)$",command)
+        mo = re.search("^sr([0-9]+)$",command)
         if mo is not None:
             c = int(mo.group(1))
             if len(self._sources)>c:
