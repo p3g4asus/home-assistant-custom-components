@@ -248,7 +248,7 @@ See [broadlink_asyncio](#broadlink_asyncio_learning).
 
 ### Discovery service
 
-The service name is `remote.orvibo_asyncio_remote_discovery`. New entities will be crated in the `remote` domain.
+The service name is `remote.orvibo_asyncio_remote_discovery`. New entities will be created in the `remote` domain.
 See [orvibo_asyncio](#orvibo_asyncio_discovery) for details.
 
 ### Entity state and attributes
@@ -424,7 +424,7 @@ Please note that not all TVs support all commands.
 Examples of command list:
 
 example| action
-:--- | :---| :---
+:--- | :---
 `["volume#30"]` | will set the volume to 30%
 `["volume#10","t1","brightness#100"]`| will set the volume to 10%, wait 1s and then set the brightness to 100%
 
