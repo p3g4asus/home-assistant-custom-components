@@ -502,14 +502,14 @@ With the above configuration, the component will create and register an entity w
 See [broadlink_asyncio](#broadlink_asyncio_commands). The allowed commands are: 
 
  - `ch[0-9]+`
- - `sr#[0-9]+`
+ - `sr[0-9]+`
 
 Examples of command list:
 
 example| action
 :--- | :---
 `["ch340"]` | will set TV channel to 340
-`["sr#1"]`| will set the AV source to the second one (HDMI1?) in the sources list. Usually the first one (index 0) is the TV source.
+`["sr1"]`| will set the AV source to the second one (HDMI1?) in the sources list. Usually the first one (index 0) is the TV source.
 
 
 ### Entity state and attributes
