@@ -1,5 +1,6 @@
 
 
+
 # home-assistant-custom-components
 
 This is a set of custom components for home-assistant. To install any of them simply place its folder inside your `<config directory>/custom_components` folder.
@@ -74,7 +75,7 @@ Use the service `remote.send_command` with the following data
 parameter| description| example
 :--- | :---| :---
 **entity_id (Required)** | use any of the entities created | `remote.diningroom_maintv`
-**command (Required)** | list of commands to send. It must contain commands defined in the [`remotes`](#broadlink_asyncio_remotes) map. It can also contain delay commands. | `["ch1","t0.5","ch0"]` <br/> `["101"]` will also work to press in sequence `ch1`, `ch0` and `ch1` <br/> `["volume_p#10"]` can be used to send 10 times `volume_p` command
+**command (Required)** | list of commands to send. It must contain commands defined in the [`remotes`](#broadlink_asyncio_remotes) map. It can also contain delay commands. | `["ch1","t0.5","ch0"]` <br/> `["ch101"]` will also work to press in sequence `ch1`, `ch0` and `ch1` <br/> `["volume_p#10"]` can be used to send 10 times `volume_p` command
 **num_repeats (Optional)** | Number of repetitions of the command specified **Default** `1` | `2`
 **hold_secs (Optional)** | Seconds to be waited between each command in list **Default** `0` | `0.5`
 **delay_secs (Optional)** | Seconds to be waited between each repetition of command list **Default** `0` | `1`
