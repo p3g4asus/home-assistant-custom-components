@@ -118,10 +118,10 @@ async def async_setup_platform(hass, config, async_add_entities,
         auth = False
         pn = hass.components.persistent_notification
         lastcmddict = await device.ask_last()
-        if lastcmddict and "dps" in lastcmddict and "1" in lastcmddict["dps"] and lastcmddict["dps"]["1"]!="study":
-            auth = await entity.enter_learning_mode()
-        else:
+        if lastcmddict and "dps" in lastcmddict and "1" in lastcmddict["dps"] and lastcmddict["dps"]["1"]=="study":
             auth = True
+        else:
+            auth = await entity.enter_learning_mode()
         if auth:
             timeout = service.data.get(CONF_TIMEOUT, 30)
             if auth:
