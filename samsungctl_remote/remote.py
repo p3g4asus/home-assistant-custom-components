@@ -347,7 +347,7 @@ class SamsungCTLRemote(RemoteDevice):
                 await self._destroy_device()
             except:
                 _LOGGER.error("Reinit error")
-                await self._destroy_device()               
+                await self._destroy_device()
         return self._remote
     
 
