@@ -525,7 +525,7 @@ The `attributes` dict of the entity created has the following fields:
 
 key| value
 :--- | :---
-**channell** | the number of the current channel set on the TV.
+**channel** | the number of the current channel set on the TV.
 **source** | the name of the current source set on the TV.
 **sourceidx** | the index of the current source set on the TV.
 
