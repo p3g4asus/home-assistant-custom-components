@@ -400,7 +400,6 @@ class SamsungCTLRemote(RemoteDevice):
             self._remote = None
             return False
         else:
-            self._last_init = time.time()
             return True
         
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
