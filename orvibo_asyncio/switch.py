@@ -64,7 +64,7 @@ async def async_setup_platform(hass, config, async_add_entities,
         
         switch_data = hass.data[DATA_KEY]
         timeout = service.data.get(CONF_TIMEOUT,5)
-        broadcast = service.data.get(CONF_BROADCAST_ADDRESS,'255.255.255.255s')
+        broadcast = service.data.get(CONF_BROADCAST_ADDRESS,'255.255.255.255')
         new_switches = []
         disc = await S20.discovery(broadcast_address=broadcast,timeout=timeout)
         for _,v in disc.items():

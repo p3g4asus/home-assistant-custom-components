@@ -21,7 +21,7 @@ from . import get_orvibo_class
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=30)
 
-REQUIREMENTS = ['asyncio-orvibo>=1.18']
+#REQUIREMENTS = ['asyncio-orvibo>=1.18']
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
         vol.All(int, vol.Range(min=1)),
     vol.Optional(CONF_REMOTES, default={}):
         cv.schema_with_slug_keys(KEYS_SCHEMA),
-})
+}, extra=vol.ALLOW_EXTRA)
 
 
 async def async_setup_platform(hass, config, async_add_entities,
@@ -144,7 +144,7 @@ async def async_setup_platform(hass, config, async_add_entities,
         elif service.service == SERVICE_DISCOVERY:
             hassdata = hass.data[DATA_KEY]
             timeout = service.data.get(CONF_TIMEOUT,5)
-            broadcast = service.data.get(CONF_BROADCAST_ADDRESS,'255.255.255.255s')
+            broadcast = service.data.get(CONF_BROADCAST_ADDRESS,'255.255.255.255')
             new_allones = []
             disc = await AllOne.discovery(broadcast_address=broadcast,timeout=timeout)
             for _,v in disc.items():
