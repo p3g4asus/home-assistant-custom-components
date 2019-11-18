@@ -1,0 +1,1 @@
+"""gocomma remote component"""
