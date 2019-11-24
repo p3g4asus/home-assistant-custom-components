@@ -10,7 +10,7 @@ from aiohttp.web import json_response
 
 from homeassistant.core import Context, callback, HomeAssistant, State
 from homeassistant.helpers.event import async_call_later
-from homeassistant.components import webhook
+from homeassistant.components import webhook, script
 from homeassistant.const import (
     CONF_NAME,
     STATE_UNAVAILABLE,
@@ -28,6 +28,8 @@ from .const import (
     DEVICE_CLASS_TO_GOOGLE_TYPES,
     CONF_ROOM_HINT,
     CONF_STATE_BRIGHTNESS_TEMPLATE,
+    CONF_STATE_ONOFF_TEMPLATE,
+    TYPE_LIGHT,
 )
 from .error import SmartHomeError
 
@@ -315,7 +317,7 @@ class GoogleEntity:
         device_type = get_google_type(domain, device_class)
 
         device = {
-            "id": state.entity_id,
+            "id": self.entity_id,
             "name": {"name": name},
             "attributes": {},
             "traits": [trait.name for trait in traits],
@@ -444,15 +446,18 @@ def async_get_entities(hass, config) -> List[GoogleEntity]:
         if state.entity_id in CLOUD_NEVER_EXPOSED_ENTITIES:
             continue
 
-        if state.domain==script.DOMAIN and state.entity_id not in data.config.entity_config:
-            for ek,_ in data.config.entity_config.items():
+        if state.domain==script.DOMAIN and state.entity_id not in config.entity_config:
+            #_LOGGER.info("state.entity_id "+state.entity_id)
+            for ek,_ in config.entity_config.items():
                 state_entity_id = GoogleEntity.state_entity_id_from_entity_id(ek)
+                #_LOGGER.info("ek = "+ek+" seid "+state_entity_id)
                 if state.entity_id==state_entity_id:
-                    entity = GoogleEntity(hass, data.config, state, entity_id=ek)
+                    entity = GoogleEntity(hass, config, state, entity_id=ek)
+                    #_LOGGER.info("esup "+str(entity.is_supported()))
                     if entity.is_supported():
                         entities.append(entity)
         else:
-            entity = GoogleEntity(hass, data.config, state)
+            entity = GoogleEntity(hass, config, state)
             if entity.is_supported():
                 entities.append(entity)
     return entities
