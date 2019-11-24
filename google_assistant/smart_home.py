@@ -6,7 +6,11 @@ import re
 
 from homeassistant.util.decorator import Registry
 
-from homeassistant.const import ATTR_ENTITY_ID, __version__
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    __version__,
+    CLOUD_NEVER_EXPOSED_ENTITIES,
+)
 
 from .const import (
     ERR_PROTOCOL_ERROR,
