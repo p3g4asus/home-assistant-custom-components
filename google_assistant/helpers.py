@@ -270,7 +270,7 @@ class GoogleEntity:
         entity_config = self.config.entity_config.get(self.entity_id, {})
 
         self._traits = [
-            Trait(self.hass, state, self.config)
+            Trait(self.hass, state, self.config, entity_config)
             for Trait in trait.TRAITS
             if Trait.supported(domain, features, device_class, entity_config)
         ]
