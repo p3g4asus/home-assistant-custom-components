@@ -5,6 +5,7 @@ import logging
 import re
 
 from homeassistant.util.decorator import Registry
+from homeassistant.components import script
 
 from homeassistant.const import (
     ATTR_ENTITY_ID,
