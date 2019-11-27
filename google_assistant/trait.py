@@ -166,6 +166,7 @@ class _Trait:
                 attributes = json.loads(s)
             else:
                 attributes = dict()
+            _LOGGER.debug("calling "+self.state.entity_id+" "+str(attributes))
             await self.hass.services.async_call(
                 self.state.domain, self.state.entity_id[self.state.entity_id.rfind('.')+1:],
                 attributes, blocking=False,
@@ -541,13 +542,14 @@ class SceneTrait(_Trait):
     async def execute(self, command, data, params, challenge):
         """Execute a scene command."""
         # Don't block for scripts as they can be slow.
-        await self.hass.services.async_call(
-            self.state.domain,
-            SERVICE_TURN_ON,
-            {ATTR_ENTITY_ID: self.state.entity_id},
-            blocking=self.state.domain != script.DOMAIN,
-            context=data.context,
-        )
+        if self.state.domain==script.DOMAIN:
+            await self.manage_script_template({}, data.context)
+        else:
+            await self.hass.services.async_call(
+                self.state.domain, SERVICE_TURN_ON, {
+                    ATTR_ENTITY_ID: self.state.entity_id
+                }, blocking=self.state.domain != script.DOMAIN,
+                context=data.context)
 
 
 @register_trait
