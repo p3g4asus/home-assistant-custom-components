@@ -44,10 +44,10 @@ def async_register_http(hass, cfg):
 
         if entity.entity_id in CLOUD_NEVER_EXPOSED_ENTITIES:
             return False
-        
-        if entity.domain==script.DOMAIN and entity.entity_id not in entity_config:
+
+        if entity.domain == script.DOMAIN and entity.entity_id not in entity_config:
             explicit_expose = False
-            for ek,ev in entity_config.items():
+            for ek, ev in entity_config.items():
                 if entity.entity_id in ek:
                     explicit_expose = ev.get(CONF_EXPOSE)
                     if explicit_expose:
