@@ -36,7 +36,7 @@ ENTITY_SCHEMA = vol.Schema({
     vol.Optional(CONF_EXPOSE): cv.boolean,
     vol.Optional(CONF_ALIASES): vol.All(cv.ensure_list, [cv.string]),
     vol.Optional(CONF_ROOM_HINT): cv.string,
-    vol.Optional(CONF_DATA): {cv.slug:cv.string},
+    vol.Optional(CONF_DATA): {cv.slug: cv.string},
     vol.Optional(CONF_DATA_TEMPLATE): cv.template,
     vol.Optional(CONF_STATE_ONOFF_TEMPLATE): cv.template,
     vol.Optional(CONF_STATE_BRIGHTNESS_TEMPLATE): cv.template,

@@ -14,7 +14,7 @@ from homeassistant.const import (
 import homeassistant.helpers.config_validation as cv
 from datetime import timedelta
 from homeassistant.util import (Throttle)
-from .const import (CONF_BROADCAST_ADDRESS,ORVIBO_ASYNCIO_DATA_KEY)
+from .const import (CONF_BROADCAST_ADDRESS, ORVIBO_ASYNCIO_DATA_KEY)
 from . import get_orvibo_class
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=2)
@@ -44,43 +44,43 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 async def async_setup_platform(hass, config, async_add_entities,
                                discovery_info=None):
     """Set up S20 switches."""
-    S20 = get_orvibo_class(hass.data,'S20')
+    S20 = get_orvibo_class(hass.data, 'S20')
     PORT = hass.data[ORVIBO_ASYNCIO_DATA_KEY]["PORT"]
-    
+
     if DATA_KEY not in hass.data:
         hass.data[DATA_KEY] = {}
     hassdata = hass.data[DATA_KEY]
     host = config.get(CONF_HOST)
-    s20_obj = S20((host,PORT), mac=config.get(CONF_MAC),timeout=config.get(CONF_TIMEOUT))
+    s20_obj = S20((host, PORT), mac=config.get(CONF_MAC), timeout=config.get(CONF_TIMEOUT))
     s20_entity = S20Switch(config.get(CONF_NAME), s20_obj)
     async_add_entities([s20_entity])
     hassdata[host] = s20_entity
-    
+
     async def async_service_handler(service):
         """Handle a learn command."""
         if service.service != SERVICE_DISCOVERY:
             _LOGGER.error("We should not handle service: %s", service.service)
             return
-        
+
         switch_data = hass.data[DATA_KEY]
-        timeout = service.data.get(CONF_TIMEOUT,5)
-        broadcast = service.data.get(CONF_BROADCAST_ADDRESS,'255.255.255.255s')
+        timeout = service.data.get(CONF_TIMEOUT, 5)
+        broadcast = service.data.get(CONF_BROADCAST_ADDRESS, '255.255.255.255s')
         new_switches = []
-        disc = await S20.discovery(broadcast_address=broadcast,timeout=timeout)
-        for _,v in disc.items():
+        disc = await S20.discovery(broadcast_address=broadcast, timeout=timeout)
+        for _, v in disc.items():
             if v.hp[0] not in switch_data:
-                mac =  S20.print_mac(v.mac)
+                mac = S20.print_mac(v.mac)
                 name = "s_"+mac
-                switch_data[v.hp[0]] = {\
-                    CONF_NAME: name,\
-                    CONF_MAC: mac,\
-                    CONF_TIMEOUT: DEFAULT_TIMEOUT,\
-                    CONF_HOST: v.hp[0],\
+                switch_data[v.hp[0]] = {
+                    CONF_NAME: name,
+                    CONF_MAC: mac,
+                    CONF_TIMEOUT: DEFAULT_TIMEOUT,
+                    CONF_HOST: v.hp[0],
                     "obj": v}
-                _LOGGER.info("Discovered new S20 device %s",v)
-                new_switches.append(S20Switch(name,v))
+                _LOGGER.info("Discovered new S20 device %s", v)
+                new_switches.append(S20Switch(name, v))
             else:
-                _LOGGER.info("Re-Discovered S20 device %s",v)
+                _LOGGER.info("Re-Discovered S20 device %s", v)
         if new_switches:
             async_add_entities(new_switches)
 
@@ -110,7 +110,7 @@ class S20Switch(SwitchDevice):
     @property
     def is_on(self):
         """Return true if device is on."""
-        return self._s20.state==1
+        return self._s20.state == 1
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
@@ -118,7 +118,7 @@ class S20Switch(SwitchDevice):
         try:
             await self._s20.subscribe_if_necessary()
         except Exception as ex:
-            _LOGGER.exception("Error while fetching S20 state, %s",ex)
+            _LOGGER.exception("Error while fetching S20 state, %s", ex)
 
     async def async_turn_on(self, **kwargs):
         """Turn the device on."""
@@ -126,7 +126,7 @@ class S20Switch(SwitchDevice):
             if await self._s20.state_change(1):
                 await self.async_update_ha_state()
         except Exception as ex:
-            _LOGGER.exception("Error while turning on S20, %s",ex)
+            _LOGGER.exception("Error while turning on S20, %s", ex)
 
     async def async_turn_off(self, **kwargs):
         """Turn the device off."""
@@ -134,4 +134,4 @@ class S20Switch(SwitchDevice):
             if await self._s20.state_change(0):
                 await self.async_update_ha_state()
         except Exception as ex:
-            _LOGGER.exception("Error while turning off S20, %s",ex)
+            _LOGGER.exception("Error while turning off S20, %s", ex)

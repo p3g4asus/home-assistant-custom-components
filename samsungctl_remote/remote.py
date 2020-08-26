@@ -9,10 +9,16 @@ import os
 
 import voluptuous as vol
 
-from homeassistant.components.remote import (ATTR_DELAY_SECS,
-    DEFAULT_DELAY_SECS, PLATFORM_SCHEMA, RemoteDevice)
+from homeassistant.components.remote import (
+    ATTR_DELAY_SECS,
+    DEFAULT_DELAY_SECS,
+    PLATFORM_SCHEMA,
+    RemoteDevice
+)
 from homeassistant.const import (
-    CONF_NAME, CONF_FILE_PATH)
+    CONF_NAME,
+    CONF_FILE_PATH
+)
 import homeassistant.helpers.config_validation as cv
 import traceback
 from homeassistant.util import Throttle
@@ -25,7 +31,7 @@ MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=1)
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_NAME): cv.string,
-    vol.Optional(CONF_FILE_PATH,os.path.join(
+    vol.Optional(CONF_FILE_PATH, os.path.join(
             os.path.dirname(__file__), 'samsungctl.conf')): cv.string,
 }, extra=vol.ALLOW_EXTRA)
 
@@ -46,9 +52,8 @@ async def async_setup_platform(hass, config, async_add_entities,
 
     if DATA_KEY not in hass.data:
         hass.data[DATA_KEY] = {}
-    
-    
-    unique_id = fname.replace("/","").replace(":","").replace(".","_")
+
+    unique_id = fname.replace("/", "").replace(":", "").replace(".", "_")
 
     xiaomi_miio_remote = SamsungCTLRemote(friendly_name, fname, unique_id)
 
@@ -57,10 +62,9 @@ async def async_setup_platform(hass, config, async_add_entities,
     async_add_entities([xiaomi_miio_remote])
 
 
-
 class SamsungCTLRemote(RemoteDevice):
     """Representation of a Xiaomi Miio Remote device."""
-    
+
     CODES = {
         'KEY_POWEROFF',
         'KEY_POWERON',
@@ -306,50 +310,49 @@ class SamsungCTLRemote(RemoteDevice):
         'KEY_EXT40',
         'KEY_EXT41',
     }
-    
-    async def set_state(self,newstate):
-        if newstate!=self._state:
+
+    async def set_state(self, newstate):
+        if newstate != self._state:
             self._state = newstate
             await self.async_update_ha_state()
-    
+
     async def _destroy_device(self):
         if self._remote is not None:
             try:
                 self._remote.close()
-            except:
+            except Exception:
                 pass
             self._remote = None
             await self.set_state("off")
-    
+
     def _reinit(self):
         from . import samsungctl
         if self._config is None:
             cc = samsungctl.Config.load(self._conffile)
             cc.log_level = samsungctl.Config.LOG_DEBUG
             self._config = cc
-            _LOGGER.info("Reiniting %s",self._config)
+            _LOGGER.info("Reiniting %s", self._config)
         self._remote = samsungctl.Remote(self._config)
         if not self._remote.open():
             self._remote = None
         return self._remote
-    
+
     async def reinit(self):
         now = time.time()
-        if self._remote is None or now-self._last_init>=60:
+        if self._remote is None or now-self._last_init >= 60:
             try:
                 await self._destroy_device()
-                
+
                 await self.hass.async_add_job(self._reinit)
                 if self._remote is not None:
                     self._last_init = now
             except BaseException as ex:
-                _LOGGER.error("Reinit error: %s",ex)
+                _LOGGER.error("Reinit error: %s", ex)
                 await self._destroy_device()
-            except:
+            except Exception:
                 _LOGGER.error("Reinit error")
                 await self._destroy_device()
         return self._remote
-    
 
     def __init__(self, friendly_name, fpath, unique_id):
         """Initialize the remote."""
@@ -360,7 +363,7 @@ class SamsungCTLRemote(RemoteDevice):
         self._conffile = fpath
         self._remote = None
         self._last_init = 0
-        
+
     @property
     def unique_id(self):
         """Return an unique ID."""
@@ -379,7 +382,7 @@ class SamsungCTLRemote(RemoteDevice):
     @property
     def is_on(self):
         """Return False if device is unreachable, else True."""
-        return self._state=="on"
+        return self._state == "on"
 
     @property
     def should_poll(self):
@@ -394,15 +397,15 @@ class SamsungCTLRemote(RemoteDevice):
     async def async_turn_off(self, **kwargs):
         """Turn the device off."""
         await self.async_send_command(["KEY_POWEROFF"])
-        
-    def _send_key(self,key):
+
+    def _send_key(self, key):
         if not self._remote.control(key):
             self._remote = None
             return False
         else:
             self._last_init = time.time()
             return True
-        
+
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def async_update(self):
         self._state = "off"
@@ -410,9 +413,9 @@ class SamsungCTLRemote(RemoteDevice):
             if await self.reinit():
                 if self._remote.power:
                     self._state = "on"
-        except:
+        except Exception:
             pass
-        _LOGGER.debug("New state is %s",self._state)
+        _LOGGER.debug("New state is %s", self._state)
 
     async def _send_command(self, packet, totretry):
         if isinstance(packet, float):
@@ -420,7 +423,7 @@ class SamsungCTLRemote(RemoteDevice):
             return True
         else:
             for r in range(totretry):
-                _LOGGER.info("Pid is %s (%d/%d)",repr(packet),r,totretry)
+                _LOGGER.info("Pid is %s (%d/%d)", repr(packet), r, totretry)
                 if await self.reinit():
                     try:
                         vv = await self.hass.async_add_job(ft.partial(
@@ -429,31 +432,31 @@ class SamsungCTLRemote(RemoteDevice):
                             break
                         else:
                             await self.set_state("off")
-                    except:
-                        _LOGGER.error("Send command channel %s",traceback.format_exc())
+                    except Exception:
+                        _LOGGER.error("Send command channel %s", traceback.format_exc())
                         await self._destroy_device()
             return False
-                        
-    def command2payloads(self,command):
+
+    def command2payloads(self, command):
         command = command.upper()
         _LOGGER.info("Searching for %s", command)
         if command in SamsungCTLRemote.CODES:
             return [command]
-        elif re.search("^T[0-9\.]+$",command) is not None:
+        elif re.search("^T[0-9\.]+$", command) is not None:
             return [float(command[1:])]
         else:
-            mo = re.search("^CH([0-9]+)$",command)
+            mo = re.search("^CH([0-9]+)$", command)
             if mo is not None:
                 cmd = mo.group(1)
                 return ["KEY_"+c for c in cmd]
-                    
-            mo = re.search("^([^#]+)#([0-9]+)$",command)
+
+            mo = re.search("^([^#]+)#([0-9]+)$", command)
             if mo is not None:
                 cmd = mo.group(1)
                 if cmd in SamsungCTLRemote.CODES:
                     return [cmd for _ in range(int(mo.group(2)))]
             return []
-        
+
     async def async_send_command(self, command, **kwargs):
         """Send a command."""
         if await self.reinit():
@@ -464,10 +467,10 @@ class SamsungCTLRemote(RemoteDevice):
                 k = 0
                 pause = False
                 for local_payload in payloads:
-                    pause = await self._send_command(local_payload,3)
-                    k+=1
-                    if not pause and k<len(payloads):
+                    pause = await self._send_command(local_payload, 3)
+                    k += 1
+                    if not pause and k < len(payloads):
                         await asyncio.sleep(delay)
-                j+=1
-                if not pause and j<len(command):
+                j += 1
+                if not pause and j < len(command):
                     await asyncio.sleep(delay)
