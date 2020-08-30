@@ -4,6 +4,6 @@
   "documentation": "https://github.com/p3g4asus/home-assistant-custom-components",
   "dependencies": ["remote"],
   "codeowners": ["@p3g4asus"],
-  "requirements": ["asyncio-orvibo=1.18"],
+  "requirements": ["asyncio-orvibo>=1.18"],
   "version": "3.2"
 }
