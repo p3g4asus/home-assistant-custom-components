@@ -21,7 +21,7 @@ from . import get_orvibo_class
 
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=30)
 
-#REQUIREMENTS = ['asyncio-orvibo>=1.18']
+REQUIREMENTS = ['asyncio-orvibo>=1.18']
 
 _LOGGER = logging.getLogger(__name__)
 
