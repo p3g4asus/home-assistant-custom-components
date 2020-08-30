@@ -1,0 +1,9 @@
+{
+  "domain": "remoterest",
+  "name": "Remote REST",
+  "documentation": "https://github.com/p3g4asus/home-assistant-custom-components",
+  "dependencies": ["remote"],
+  "codeowners": ["@p3g4asus"],
+  "requirements": ["aiohttp>=3.6.1"],
+  "version": "1.0"
+}

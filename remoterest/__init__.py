@@ -1,0 +1,1 @@
+"""REST remote component"""
