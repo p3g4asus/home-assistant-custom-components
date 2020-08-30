@@ -233,12 +233,11 @@ def get_google_type(domain, device_class):
 class GoogleEntity:
     """Adaptation of Entity expressed in Google's terms."""
 
-
     @staticmethod
     def state_entity_id_from_entity_id(entity_id):
         mo = re.search("_kkk_[a-zA-Z0-9_]+", entity_id)
         if mo:
-            if mo.start()>0:
+            if mo.start() > 0:
                 return entity_id[:mo.start()]
         return None
 
@@ -254,7 +253,7 @@ class GoogleEntity:
     def entity_id(self):
         """Return entity ID."""
         return self.state.entity_id if self.entity_id_f is None else self.entity_id_f
-    
+
     @property
     def state_entity_id(self):
         return self.state.entity_id
@@ -315,17 +314,17 @@ class GoogleEntity:
         traits = self.traits()
 
         device_type = get_google_type(domain, device_class)
-
+        tp = TYPE_LIGHT if state.domain == script.DOMAIN and \
+            (CONF_STATE_BRIGHTNESS_TEMPLATE in entity_config or
+             CONF_STATE_ONOFF_TEMPLATE in entity_config) \
+            else device_type
         device = {
             "id": self.entity_id,
             "name": {"name": name},
             "attributes": {},
             "traits": [trait.name for trait in traits],
             "willReportState": self.config.should_report_state,
-            "type": TYPE_LIGHT if state.domain==script.DOMAIN and \
-                (CONF_STATE_BRIGHTNESS_TEMPLATE in entity_config or\
-                 CONF_STATE_ONOFF_TEMPLATE in entity_config) else \
-                 device_type,
+            "type": tp,
         }
 
         # use aliases
@@ -440,20 +439,19 @@ def deep_update(target, source):
 def async_get_entities(hass, config) -> List[GoogleEntity]:
     """Return all entities that are supported by Google."""
     entities = []
-    devices = []
-        
+
     for state in hass.states.async_all():
         if state.entity_id in CLOUD_NEVER_EXPOSED_ENTITIES:
             continue
 
-        if state.domain==script.DOMAIN and state.entity_id not in config.entity_config:
-            #_LOGGER.info("state.entity_id "+state.entity_id)
-            for ek,_ in config.entity_config.items():
+        if state.domain == script.DOMAIN and state.entity_id not in config.entity_config:
+            # _LOGGER.info("state.entity_id "+state.entity_id)
+            for ek, _ in config.entity_config.items():
                 state_entity_id = GoogleEntity.state_entity_id_from_entity_id(ek)
-                #_LOGGER.info("ek = "+ek+" seid "+state_entity_id)
-                if state.entity_id==state_entity_id:
+                # _LOGGER.info("ek = "+ek+" seid "+state_entity_id)
+                if state.entity_id == state_entity_id:
                     entity = GoogleEntity(hass, config, state, entity_id=ek)
-                    #_LOGGER.info("esup "+str(entity.is_supported()))
+                    # _LOGGER.info("esup "+str(entity.is_supported()))
                     if entity.is_supported():
                         entities.append(entity)
         else:

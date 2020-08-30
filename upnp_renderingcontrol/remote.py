@@ -6,8 +6,11 @@ import re
 
 import voluptuous as vol
 
-from homeassistant.components.remote import (ATTR_DELAY_SECS,
-    DEFAULT_DELAY_SECS, PLATFORM_SCHEMA, RemoteDevice)
+from homeassistant.components.remote import (
+    ATTR_DELAY_SECS,
+    DEFAULT_DELAY_SECS,
+    PLATFORM_SCHEMA,
+    RemoteDevice)
 from homeassistant.const import (
     CONF_NAME, CONF_URL, CONF_TIMEOUT)
 import homeassistant.helpers.config_validation as cv
@@ -31,13 +34,13 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_NAME): cv.string,
     vol.Required(CONF_URL): cv.string,
     vol.Optional(CONF_DEFAULT_SHARPNESS, default=50):
-        vol.All(int, vol.Range(min=0,max=100)),
+        vol.All(int, vol.Range(min=0, max=100)),
     vol.Optional(CONF_DEFAULT_VOLUME, default=50):
-        vol.All(int, vol.Range(min=0,max=100)),
+        vol.All(int, vol.Range(min=0, max=100)),
     vol.Optional(CONF_DEFAULT_CONTRAST, default=50):
-        vol.All(int, vol.Range(min=0,max=100)),
+        vol.All(int, vol.Range(min=0, max=100)),
     vol.Optional(CONF_DEFAULT_BRIGHTNESS, default=50):
-        vol.All(int, vol.Range(min=0,max=100)),
+        vol.All(int, vol.Range(min=0, max=100)),
     vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT):
         vol.All(int, vol.Range(min=0)),
 }, extra=vol.ALLOW_EXTRA)
@@ -60,46 +63,42 @@ async def async_setup_platform(hass, config, async_add_entities,
     if DATA_KEY not in hass.data:
         hass.data[DATA_KEY] = {}
 
-    
     timeout = config.get(CONF_TIMEOUT)
 
-
-
-    defaults = dict(sharpness=config.get(CONF_DEFAULT_SHARPNESS),\
-                    brightness=config.get(CONF_DEFAULT_BRIGHTNESS),\
-                    contrast=config.get(CONF_DEFAULT_CONTRAST),\
+    defaults = dict(sharpness=config.get(CONF_DEFAULT_SHARPNESS),
+                    brightness=config.get(CONF_DEFAULT_BRIGHTNESS),
+                    contrast=config.get(CONF_DEFAULT_CONTRAST),
                     volume=config.get(CONF_DEFAULT_VOLUME),
                     mute=-1)
-    
-    unique_id = url.replace("/","").replace(":","").replace(".","_")
 
-    xiaomi_miio_remote = RCRemote(friendly_name, url, unique_id, timeout,defaults)
+    unique_id = url.replace("/", "").replace(":", "").replace(".", "_")
+
+    xiaomi_miio_remote = RCRemote(friendly_name, url, unique_id, timeout, defaults)
 
     hass.data[DATA_KEY][friendly_name] = xiaomi_miio_remote
 
     async_add_entities([xiaomi_miio_remote])
 
 
-
 class RCRemote(RemoteDevice):
     """Representation of a Xiaomi Miio Remote device."""
-    
-    RC_STATES = ["contrast","brightness","volume","mute","sharpness"]
-    
-    #Not used because of polling
-    async def set_state(self,newstate):
-        if newstate!=self._state:
+
+    RC_STATES = ["contrast", "brightness", "volume", "mute", "sharpness"]
+
+    # Not used because of polling
+    async def set_state(self, newstate):
+        if newstate != self._state:
             self._state = newstate
             await self.async_update_ha_state()
-    
+
     def _destroy_device(self):
         self._service = None
         self._state = "off"
-    
+
     async def reinit(self):
         if not self._service:
             try:
-                _LOGGER.warn("Reiniting %s",self._url)
+                _LOGGER.warn("Reiniting %s", self._url)
                 self._device = await self._factory.async_create_device(self._url)
                 # get RenderingControle-service
                 self._service = self._device.service('urn:schemas-upnp-org:service:RenderingControl:1')
@@ -107,15 +106,10 @@ class RCRemote(RemoteDevice):
                 return self._service
             except BaseException as ex:
                 self._state = "off"
-                _LOGGER.error("Reinit Error %s: %s",self._url,ex)
-                return None
-            except:
-                self._state = "off"
-                _LOGGER.error("Reinit Error %s",self._url)
+                _LOGGER.error("Reinit Error %s: %s", self._url, ex)
                 return None
         else:
             return self._service
-    
 
     def __init__(self, friendly_name, url, unique_id, timeout, defs):
         from async_upnp_client import UpnpFactory
@@ -127,9 +121,9 @@ class RCRemote(RemoteDevice):
         self._state = "off"
         self._device = None
         self._service = None
-        self._states = dict.fromkeys(RCRemote.RC_STATES,-5)
+        self._states = dict.fromkeys(RCRemote.RC_STATES, -5)
         requester = AiohttpRequester(timeout)
-        self._factory = UpnpFactory(requester,disable_unknown_out_argument_error=True)
+        self._factory = UpnpFactory(requester, disable_unknown_out_argument_error=True)
         self._defaults = defs
 
     @property
@@ -150,7 +144,7 @@ class RCRemote(RemoteDevice):
     @property
     def is_on(self):
         """Return False if device is unreachable, else True."""
-        return self._state=="on"
+        return self._state == "on"
 
     @property
     def should_poll(self):
@@ -171,13 +165,13 @@ class RCRemote(RemoteDevice):
         """Turn the device off."""
         _LOGGER.error("Device does not support turn_off, "
                       "please use 'remote.send_command' to send commands.")
-        
+
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    async def async_update(self,what=None,**kwargs):
+    async def async_update(self, what=None, **kwargs):
         if what is None:
             what = self._states.keys()
         self._state = "off"
-        #self._states = dict.fromkeys(RCRemote.RC_STATES,-1)
+        # self._states = dict.fromkeys(RCRemote.RC_STATES,-1)
         if await self.reinit():
             for p in what:
                 st = dict()
@@ -186,46 +180,46 @@ class RCRemote(RemoteDevice):
                     s = self._service.action('Get'+k)
                     if s is not None:
                         st = await s.async_call(InstanceID=0, Channel='Master')
-                        if len(st)>1 and 'Current'+k in st:
+                        if len(st) > 1 and 'Current' + k in st:
                             st = st['Current'+k]
                         elif len(st):
                             st = next(iter(st.values()))
                         else:
-                            _LOGGER.error("Update %s rv error %s",p,str(st))
+                            _LOGGER.error("Update %s rv error %s", p, str(st))
                             self._destroy_device()
                             return
                     else:
                         st = -2
                     self._states[p] = st
-                except:
+                except Exception:
                     self._destroy_device()
-                    _LOGGER.error("Update %s error rv = %s: %s",p,st,traceback.format_exc())
+                    _LOGGER.error("Update %s error rv = %s: %s", p, st, traceback.format_exc())
                     return
             self._state = "on"
 
     async def _send_command(self, packet, totretry):
-        num = packet[1]            
+        num = packet[1]
         packet = packet[0]
         if isinstance(packet, float):
             await asyncio.sleep(packet)
             return True
         else:
             for r in range(totretry):
-                _LOGGER.info("Pid is %s, Rep is %d (%d/%d)",packet,num,r,totretry)
+                _LOGGER.info("Pid is %s, Rep is %d (%d/%d)", packet, num, r, totretry)
                 if await self.reinit():
-                    if packet=="mute":
+                    if packet == "mute":
                         await self.async_update(["mute"])
-                        st = self._states[packet] 
-                        if st is not None and st>=0:
+                        st = self._states[packet]
+                        if st is not None and st >= 0:
                             num = False if st else True
                     s = self._service.action("Set"+packet.title())
                     if s is not None:
                         args = s.in_arguments()
                         kw = dict()
                         for a in args:
-                            if a.name=="InstanceID":
+                            if a.name == "InstanceID":
                                 kw[a.name] = 0
-                            elif a.name=="Channel":
+                            elif a.name == "Channel":
                                 kw[a.name] = "Master"
                             else:
                                 kw[a.name] = num
@@ -233,14 +227,14 @@ class RCRemote(RemoteDevice):
                             await s.async_call(**kw)
                             self._states[packet] = num
                             break
-                        except:
+                        except Exception:
                             self._destroy_device()
-                            _LOGGER.error("Set %s to %d error %s",packet,num,traceback.format_exc())
+                            _LOGGER.error("Set %s to %d error %s", packet, num, traceback.format_exc())
                     else:
                         break
             return False
-                        
-    def command2payloads(self,command):
+
+    def command2payloads(self, command):
         command = command.lower()
         _LOGGER.info("Searching for %s", command)
         if command in RCRemote.RC_STATES:
@@ -248,21 +242,21 @@ class RCRemote(RemoteDevice):
             rep = ''
             cmd = command
         else:
-            mo = re.search("^([^#_]+)(_[pm])?(#([0-9]+))?$",command)
+            mo = re.search("^([^#_]+)(_[pm])?(#([0-9]+))?$", command)
             if mo is not None:
                 cmd = mo.group(1)
                 rep = mo.group(4)
             else:
                 cmd = ''
         if cmd in RCRemote.RC_STATES:
-            if len(rep)==0:
+            if len(rep) == 0:
                 rep = self._defaults[cmd]
-            return [(cmd,int(rep))]
-        elif re.search("^t[0-9\.]+$",cmd) is not None:
-            return [(float(cmd[1:]),1)]
+            return [(cmd, int(rep))]
+        elif re.search(r"^t[0-9\.]+$", cmd) is not None:
+            return [(float(cmd[1:]), 1)]
         else:
             return []
-        
+
     async def async_send_command(self, command, **kwargs):
         """Send a command."""
         delay = kwargs.get(ATTR_DELAY_SECS, DEFAULT_DELAY_SECS)
@@ -272,10 +266,10 @@ class RCRemote(RemoteDevice):
             k = 0
             pause = False
             for local_payload in payloads:
-                pause = await self._send_command(local_payload,3)
-                k+=1
-                if not pause and k<len(payloads):
+                pause = await self._send_command(local_payload, 3)
+                k += 1
+                if not pause and k < len(payloads):
                     await asyncio.sleep(delay)
-            j+=1
-            if not pause and j<len(command):
+            j += 1
+            if not pause and j < len(command):
                 await asyncio.sleep(delay)

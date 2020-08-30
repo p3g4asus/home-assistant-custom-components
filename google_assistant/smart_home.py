@@ -1,8 +1,6 @@
 """Support for Google Assistant Smart Home API."""
-import asyncio
 from itertools import product
 import logging
-import re
 
 from homeassistant.util.decorator import Registry
 from homeassistant.components import script
@@ -20,7 +18,6 @@ from .const import (
     EVENT_COMMAND_RECEIVED,
     EVENT_SYNC_RECEIVED,
     EVENT_QUERY_RECEIVED,
-    CONF_STATE_BRIGHTNESS_TEMPLATE,
 )
 from .helpers import RequestData, GoogleEntity, async_get_entities
 from .error import SmartHomeError
@@ -87,8 +84,8 @@ async def async_devices_sync(hass, data, payload):
     )
 
     devices = []
-    
-    async def add_google_entity(entity,devices):
+
+    async def add_google_entity(entity, devices):
         serialized = await entity.sync_serialize()
 
         if serialized is None:
@@ -96,20 +93,20 @@ async def async_devices_sync(hass, data, payload):
             return
 
         devices.append(serialized)
-        
+
     for state in hass.states.async_all():
         if state.entity_id in CLOUD_NEVER_EXPOSED_ENTITIES:
             continue
 
         if not data.config.should_expose(state):
             continue
-        if state.domain==script.DOMAIN and state.entity_id not in data.config.entity_config:
-            for ek,_ in data.config.entity_config.items():
+        if state.domain == script.DOMAIN and state.entity_id not in data.config.entity_config:
+            for ek, _ in data.config.entity_config.items():
                 state_entity_id = GoogleEntity.state_entity_id_from_entity_id(ek)
-                if state.entity_id==state_entity_id:
+                if state.entity_id == state_entity_id:
                     await add_google_entity(GoogleEntity(hass, data.config, state, entity_id=ek), devices)
         else:
-            await add_google_entity(GoogleEntity(hass, data.config, state),devices)
+            await add_google_entity(GoogleEntity(hass, data.config, state), devices)
 
     response = {
         "agentUserId": data.config.agent_user_id or data.context.user_id,
@@ -140,7 +137,7 @@ async def async_devices_query(hass, data, payload):
         hass.bus.async_fire(
             EVENT_QUERY_RECEIVED,
             {
-                "request_id": data.request_id, 
+                "request_id": data.request_id,
                 ATTR_ENTITY_ID: state_entity_id,
                 "full_entity_id": devid
             },

@@ -1,9 +1,9 @@
 {
-  "domain": "broaadlink_asyncio",
-  "name": "Broadlink RM",
+  "domain": "remoterest",
+  "name": "Remote REST",
   "documentation": "https://github.com/p3g4asus/home-assistant-custom-components",
   "dependencies": ["remote"],
   "codeowners": ["@p3g4asus"],
-  "requirements": ["pybroadlink>=1.3"],
-  "version": "2.2"
+  "requirements": ["aiohttp>=3.6.1"],
+  "version": "1.0"
 }

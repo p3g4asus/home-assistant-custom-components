@@ -50,6 +50,7 @@ from homeassistant.const import (
     STATE_UNKNOWN,
 )
 from homeassistant.core import DOMAIN as HA_DOMAIN
+from homeassistant.exceptions import TemplateError
 from homeassistant.util import color as color_util, temperature as temp_util
 from .const import (
     ERR_VALUE_OUT_OF_RANGE,
@@ -153,8 +154,8 @@ class _Trait:
     async def execute(self, command, data, params, challenge):
         """Execute a trait command."""
         raise NotImplementedError
-    
-    async def manage_script_template(self,template_variables,context):
+
+    async def manage_script_template(self, template_variables, context):
         s = ''
         try:
             if CONF_DATA in self.entity_config:
@@ -173,10 +174,10 @@ class _Trait:
                 context=context)
         except TemplateError as ex:
             _LOGGER.error('Could not render %s [%s]: %s',
-                self.state.entity_id,template_variables, ex)
+                          self.state.entity_id, template_variables, ex)
         except Exception as ex:
             _LOGGER.error('Could not render %s: %s %s',
-                self.state.entity_id, s, ex)
+                          self.state.entity_id, s, ex)
 
 
 @register_trait
@@ -196,7 +197,7 @@ class BrightnessTrait(_Trait):
             return features & light.SUPPORT_BRIGHTNESS
         if domain == media_player.DOMAIN:
             return features & media_player.SUPPORT_VOLUME_SET
-        if domain==script.DOMAIN:
+        if domain == script.DOMAIN:
             return CONF_STATE_BRIGHTNESS_TEMPLATE in entity_config
 
         return False
@@ -230,12 +231,12 @@ class BrightnessTrait(_Trait):
                 s = template.async_render()
                 br = int(s)
             except TemplateError as ex:
-                _LOGGER.error('Could not render %s %s: %s',CONF_STATE_BRIGHTNESS_TEMPLATE,
-                    self.state.entity_id, ex)
+                _LOGGER.error('Could not render %s %s: %s', CONF_STATE_BRIGHTNESS_TEMPLATE,
+                              self.state.entity_id, ex)
             except Exception as ex:
-                _LOGGER.error('Could not render %s %s: %s %s',CONF_STATE_BRIGHTNESS_TEMPLATE,
-                    self.state.entity_id, s, ex)
-            response['brightness'] = br if br>=0 and br<=100 else 0
+                _LOGGER.error('Could not render %s %s: %s %s', CONF_STATE_BRIGHTNESS_TEMPLATE,
+                              self.state.entity_id, s, ex)
+            response['brightness'] = br if br >= 0 and br <= 100 else 0
         else:
             response['brightness'] = 50
 
@@ -264,7 +265,7 @@ class BrightnessTrait(_Trait):
                     params['brightness'] / 100
                 }, blocking=True, context=data.context)
         elif domain == script.DOMAIN:
-            await self.manage_script_template({ 'on': -1,'variable': params['brightness'] }, data.context)
+            await self.manage_script_template({'on': -1, 'variable': params['brightness']}, data.context)
 
 
 @register_trait
@@ -329,8 +330,8 @@ class OnOffTrait(_Trait):
             fan.DOMAIN,
             light.DOMAIN,
             media_player.DOMAIN,
-        ) or (domain==script.DOMAIN and \
-              (CONF_STATE_BRIGHTNESS_TEMPLATE in entity_config or\
+        ) or (domain == script.DOMAIN and
+              (CONF_STATE_BRIGHTNESS_TEMPLATE in entity_config or
                CONF_STATE_ONOFF_TEMPLATE in entity_config)):
             return True
         return False
@@ -342,17 +343,17 @@ class OnOffTrait(_Trait):
     def query_attributes(self):
         """Return OnOff query attributes."""
         s = self.state.state
-        if self.state.domain==script.DOMAIN and CONF_STATE_ONOFF_TEMPLATE in self.entity_config:
+        if self.state.domain == script.DOMAIN and CONF_STATE_ONOFF_TEMPLATE in self.entity_config:
             try:
                 template = self.entity_config[CONF_STATE_ONOFF_TEMPLATE]
                 template.hass = self.hass
                 s = template.async_render()
             except TemplateError as ex:
-                _LOGGER.error('Could not render %s %s: %s',CONF_STATE_ONOFF_TEMPLATE,
-                    self.state.entity_id, ex)
+                _LOGGER.error('Could not render %s %s: %s', CONF_STATE_ONOFF_TEMPLATE,
+                              self.state.entity_id, ex)
             except Exception as ex:
-                _LOGGER.error('Could not render %s %s: %s %s',CONF_STATE_ONOFF_TEMPLATE,
-                    self.state.entity_id, s, ex)
+                _LOGGER.error('Could not render %s %s: %s %s', CONF_STATE_ONOFF_TEMPLATE,
+                              self.state.entity_id, s, ex)
         return {"on": s != STATE_OFF}
 
     async def execute(self, command, data, params, challenge):
@@ -363,7 +364,7 @@ class OnOffTrait(_Trait):
             service_domain = HA_DOMAIN
             service = SERVICE_TURN_ON if params["on"] else SERVICE_TURN_OFF
         elif domain == script.DOMAIN:
-            await self.manage_script_template({ 'on': 1 if params['on'] else 0,'variable': -1 }, data.context)
+            await self.manage_script_template({'on': 1 if params['on'] else 0, 'variable': -1}, data.context)
             return
         else:
             service_domain = domain
@@ -527,7 +528,7 @@ class SceneTrait(_Trait):
     def supported(domain, features, device_class, entity_config):
         """Test if state is supported."""
         return domain == scene.DOMAIN or\
-            (domain==script.DOMAIN and CONF_STATE_BRIGHTNESS_TEMPLATE not in entity_config and\
+            (domain == script.DOMAIN and CONF_STATE_BRIGHTNESS_TEMPLATE not in entity_config and
              CONF_STATE_ONOFF_TEMPLATE not in entity_config)
 
     def sync_attributes(self):
@@ -542,7 +543,7 @@ class SceneTrait(_Trait):
     async def execute(self, command, data, params, challenge):
         """Execute a scene command."""
         # Don't block for scripts as they can be slow.
-        if self.state.domain==script.DOMAIN:
+        if self.state.domain == script.DOMAIN:
             await self.manage_script_template({}, data.context)
         else:
             await self.hass.services.async_call(
